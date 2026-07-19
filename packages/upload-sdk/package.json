@@ -1,36 +1,81 @@
 {
   "name": "@marinedotsh/upload-sdk",
   "version": "1.0.0",
-  "description": "",
-  "main": "./dist/index.mjs",
+  "description": "Generate provider-agnostic signed upload targets for S3, Cloudinary, and ImageKit.",
+  "keywords": [
+    "upload",
+    "uploads",
+    "sdk",
+    "s3",
+    "cloudinary",
+    "imagekit",
+    "signed-upload",
+    "presigned-url"
+  ],
+  "homepage": "https://github.com/marinedotsh/upload-sdk#readme",
+  "bugs": {
+    "url": "https://github.com/marinedotsh/upload-sdk/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/marinedotsh/upload-sdk.git"
+  },
+  "license": "MIT",
+  "author": {
+    "name": "Shivam Gupta",
+    "url": "https://github.com/shivamrun"
+  },
+  "type": "module",
+  "sideEffects": false,
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.mjs",
   "types": "./dist/index.d.mts",
+  "exports": {
+    ".": {
+      "import": {
+        "types": "./dist/index.d.mts",
+        "default": "./dist/index.mjs"
+      },
+      "require": {
+        "types": "./dist/index.d.cts",
+        "default": "./dist/index.cjs"
+      },
+      "default": "./dist/index.mjs"
+    },
+    "./package.json": "./package.json"
+  },
   "files": [
     "dist"
   ],
-  "exports": {
-    ".": {
-      "types": "./dist/index.d.mts",
-      "import": "./dist/index.mjs"
-    }
-  },
-  "publishConfig": {
-    "access": "public"
+  "engines": {
+    "node": ">=18"
   },
   "scripts": {
-    "build": "tsdown src/index.ts --dts --clean --format esm --target es2022 --tsconfig tsconfig.json",
+    "build": "tsdown src/index.ts --dts --clean --format esm,cjs --target es2022 --tsconfig tsconfig.json",
+    "check": "pnpm lint && pnpm typecheck && pnpm build",
+    "dev": "tsdown src/index.ts --dts --watch --format esm,cjs --target es2022 --tsconfig tsconfig.json",
+    "lint": "biome check .",
+    "prepack": "pnpm build",
+    "prepublishOnly": "pnpm run publish:check",
+    "publish:check": "pnpm run check && tsdown src/index.ts --dts --clean --format esm,cjs --target es2022 --tsconfig tsconfig.json --publint --attw && pnpm pack --dry-run",
+    "release": "pnpm run publish:check && changeset publish",
+    "test": "pnpm typecheck",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "dev": "tsdown src/index.ts --dts --watch --format esm --target es2022 --tsconfig tsconfig.json",
-    "test": "echo \"No tests configured yet\""
+    "version": "changeset version"
   },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
-  "type": "module",
   "devDependencies": {
+    "@arethetypeswrong/cli": "^0.18.5",
+    "@biomejs/biome": "^2.5.4",
+    "@changesets/cli": "^2.31.1",
+    "publint": "^0.3.21",
     "tsdown": "^0.22.9",
     "typescript": "^7.0.2"
   },
   "dependencies": {
     "aws4fetch": "^1.0.20"
-  }
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "packageManager": "pnpm@11.15.0"
 }
