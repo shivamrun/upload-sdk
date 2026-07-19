@@ -1,4 +1,6 @@
 import type { AssetUploadConfig, StorageProvider } from "./types"
+import { generateFileName } from "./validation/file"
+import { sanitizeKeyPrefix } from "./validation/key-prefix"
 
 type PrepareUploadInput = {
   filename: string
@@ -28,7 +30,7 @@ export function createUploader<
       throw new Error(`Storage profile "${storageProfileName}" does not support prepareUpload`)
     }
 
-    const key = `${asset.keyPrefix}/${crypto.randomUUID()}-${input.filename}`
+    const key = `${sanitizeKeyPrefix(asset.keyPrefix)}/${generateFileName(input.filename)}`
 
     return storageProfile.prepareUpload({
       key,

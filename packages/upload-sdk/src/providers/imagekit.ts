@@ -24,9 +24,6 @@ export function imageKit(config: ImageKitConfig): StorageProvider {
     const signature = await createSignature(token, expire, config.privateKey)
     const lastSlash = key.lastIndexOf("/")
     const folder = lastSlash === -1 ? "/" : `/${key.slice(0, lastSlash)}`
-
-    // TODO(validation): sanitize/normalize the fileName so the returned key
-    // matches ImageKit's stored path when validation is enabled.
     const fileName = lastSlash === -1 ? key : key.slice(lastSlash + 1)
 
     const fields: Record<string, string> = {
