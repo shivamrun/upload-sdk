@@ -1,0 +1,33 @@
+{
+  "name": "@marinedotsh/upload-sdk",
+  "version": "1.0.0",
+  "description": "",
+  "main": "./dist/index.mjs",
+  "types": "./dist/index.d.mts",
+  "files": [
+    "dist"
+  ],
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.mts",
+      "import": "./dist/index.mjs"
+    }
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "scripts": {
+    "build": "tsdown src/index.ts --dts --clean --format esm --target es2022 --tsconfig tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "dev": "tsdown src/index.ts --dts --watch --format esm --target es2022 --tsconfig tsconfig.json",
+    "test": "echo \"No tests configured yet\""
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "module",
+  "devDependencies": {
+    "tsdown": "^0.22.9",
+    "typescript": "^7.0.2"
+  }
+}
