@@ -29,5 +29,8 @@
   "devDependencies": {
     "tsdown": "^0.22.9",
     "typescript": "^7.0.2"
+  },
+  "dependencies": {
+    "aws4fetch": "^1.0.20"
   }
 }
