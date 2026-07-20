@@ -17,18 +17,28 @@ export async function POST(request: Request) {
     return Response.json({ error: "Send name, contentType, and size." }, { status: 400 })
   }
 
-  const preparedUpload = await uploader.prepareUpload("avatar", {
-    filename: body.name,
-    contentType: body.contentType,
-    size: body.size,
-  })
-
-  return Response.json({
-    ...preparedUpload,
-    file: {
-      name: body.name,
+  try {
+    const preparedUpload = await uploader.prepareUpload("avatar", {
+      filename: body.name,
       contentType: body.contentType,
       size: body.size,
-    },
-  })
+    })
+
+    return Response.json({
+      ...preparedUpload,
+      file: {
+        name: body.name,
+        contentType: body.contentType,
+        size: body.size,
+      },
+    })
+  } catch (error) {
+    // TODO(errors): distinguish upload validation errors from provider/config failures before choosing 400.
+    return Response.json(
+      {
+        error: error instanceof Error ? error.message : "Invalid upload.",
+      },
+      { status: 400 },
+    )
+  }
 }

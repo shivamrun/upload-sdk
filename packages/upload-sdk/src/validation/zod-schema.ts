@@ -10,10 +10,43 @@ export interface SanitizedFileName {
 
 export const filenameSchema = z.string().trim().min(1, "Filename cannot be empty")
 
+export const contentTypeSchema = z
+  .string()
+  .trim()
+  .toLowerCase()
+  .regex(/^[a-z0-9][a-z0-9!#$&^_.+-]*\/[a-z0-9][a-z0-9!#$&^_.+-]*$/, {
+    message: "Content type must be a valid MIME type",
+  })
+
+export const acceptedContentTypeSchema = z
+  .string()
+  .trim()
+  .toLowerCase()
+  .regex(/^[a-z0-9][a-z0-9!#$&^_.+-]*\/(?:[a-z0-9][a-z0-9!#$&^_.+-]*|\*)$/, {
+    message: "Accepted content type must be a valid MIME type or top-level wildcard",
+  })
+
 export const extensionSchema = z
   .string()
+  .trim()
   .max(MAX_EXTENSION_LENGTH, `Extension cannot exceed ${MAX_EXTENSION_LENGTH} characters`)
   .regex(/^[a-zA-Z0-9]+$/, "Extension contains invalid characters")
+
+export const acceptedExtensionSchema = z
+  .string()
+  .trim()
+  .transform((extension) => extension.replace(/^\./, "").toLowerCase())
+  .pipe(extensionSchema)
+
+export const fileSizeSchema = z
+  .number()
+  .int("File size must be an integer")
+  .nonnegative("File size cannot be negative")
+
+export const maxFileSizeSchema = z
+  .number()
+  .int("Maximum file size must be an integer")
+  .positive("Maximum file size must be greater than zero")
 
 export const keyPrefixSegmentSchema = z
   .string()

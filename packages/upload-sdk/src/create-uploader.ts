@@ -1,6 +1,7 @@
 import type { AssetUploadConfig, StorageProvider } from "./types"
-import { generateFileName } from "./validation/file"
+import { generateFileName, sanitizeFileName } from "./validation/file"
 import { sanitizeKeyPrefix } from "./validation/key-prefix"
+import { validateUploadInput } from "./validation/upload-input"
 
 type PrepareUploadInput = {
   filename: string
@@ -30,11 +31,20 @@ export function createUploader<
       throw new Error(`Storage profile "${storageProfileName}" does not support prepareUpload`)
     }
 
+    const sanitizedFileName = sanitizeFileName(input.filename)
+    // TODO(limits): enforce maxFileSizeBytes at the provider/post-upload layer, not only via caller-reported size.
+    const contentType = validateUploadInput({
+      asset,
+      contentType: input.contentType,
+      fileExtension: sanitizedFileName.extension,
+      size: input.size,
+    })
+
     const key = `${sanitizeKeyPrefix(asset.keyPrefix)}/${generateFileName(input.filename)}`
 
     return storageProfile.prepareUpload({
       key,
-      contentType: input.contentType,
+      contentType,
       metadata: asset.metadata,
     })
   }

@@ -1,103 +1,121 @@
-"use client"
+"use client";
 
-import { type FormEvent, useRef, useState } from "react"
+import { type FormEvent, useRef, useState } from "react";
+import { assets } from "@/server/asset-rules";
+
+const uploadAsset = assets.avatar;
+const maxFiles = uploadAsset.limits?.maxFiles ?? 1;
+const allowsMultipleFiles = maxFiles > 1;
 
 type PreparedUpload = {
-  url: string
-  headers: Record<string, string>
+  url: string;
+  headers: Record<string, string>;
 } & (
   | {
-      strategy: "raw"
-      method: "PUT"
+      strategy: "raw";
+      method: "PUT";
     }
   | {
-      strategy: "multipart"
-      method: "POST"
-      fields: Record<string, string>
+      strategy: "multipart";
+      method: "POST";
+      fields: Record<string, string>;
     }
-)
+);
 
 type Status =
   | { type: "idle"; message: "" }
   | { type: "uploading"; message: string }
   | { type: "success"; message: string }
-  | { type: "error"; message: string }
+  | { type: "error"; message: string };
 
 export default function UploadPage() {
-  const inputRef = useRef<HTMLInputElement>(null)
+  const inputRef = useRef<HTMLInputElement>(null);
 
-  const [file, setFile] = useState<File | null>(null)
+  const [files, setFiles] = useState<File[]>([]);
   const [status, setStatus] = useState<Status>({
     type: "idle",
     message: "",
-  })
+  });
 
-  const isUploading = status.type === "uploading"
+  const isUploading = status.type === "uploading";
 
   async function handleUpload(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault()
+    event.preventDefault();
 
-    if (!file) {
+    if (files.length === 0) {
       setStatus({
         type: "error",
-        message: "Choose a file first.",
-      })
+        message: allowsMultipleFiles ? "Choose files first." : "Choose a file first.",
+      });
 
-      return
+      return;
     }
 
     try {
-      setStatus({
-        type: "uploading",
-        message: "Uploading your file...",
-      })
+      const clientValidationError = validateFiles(files, uploadAsset);
 
-      const contentType = file.type || "application/octet-stream"
+      if (clientValidationError) {
+        setStatus({
+          type: "error",
+          message: clientValidationError,
+        });
 
-      const prepareResponse = await fetch("/api/upload", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          name: file.name,
-          contentType,
-          size: file.size,
-        }),
-      })
-
-      const prepared = (await prepareResponse.json()) as PreparedUpload | { error?: string }
-
-      if (!prepareResponse.ok || !("url" in prepared)) {
-        throw new Error(
-          "error" in prepared && prepared.error ? prepared.error : "Failed to prepare upload.",
-        )
+        return;
       }
 
-      const uploadResponse =
-        prepared.strategy === "multipart"
-          ? await uploadMultipart(prepared, file)
-          : await uploadRaw(prepared, file, contentType)
+      setStatus({
+        type: "uploading",
+        message:
+          files.length === 1
+            ? "Uploading your file..."
+            : `Uploading 1 of ${files.length} files...`,
+      });
 
-      if (!uploadResponse.ok) {
-        throw new Error((await uploadResponse.text()) || "File upload failed.")
+      for (const [index, selectedFile] of files.entries()) {
+        if (files.length > 1 && index > 0) {
+          setStatus({
+            type: "uploading",
+            message: `Uploading ${index + 1} of ${files.length} files...`,
+          });
+        }
+
+        await uploadFile(selectedFile);
       }
 
       setStatus({
         type: "success",
-        message: "File uploaded successfully.",
-      })
+        message:
+          files.length === 1
+            ? "File uploaded successfully."
+            : `${files.length} files uploaded successfully.`,
+      });
     } catch (error) {
       setStatus({
         type: "error",
         message: error instanceof Error ? error.message : "Upload failed.",
-      })
+      });
     }
   }
 
-  function handleFile(selectedFile: File | null) {
-    setFile(selectedFile)
-    setStatus({ type: "idle", message: "" })
+  function handleFiles(fileList: FileList | null) {
+    const selectedFiles = fileList ? Array.from(fileList) : [];
+    const nextFiles = allowsMultipleFiles
+      ? selectedFiles.slice(0, maxFiles)
+      : selectedFiles.slice(0, 1);
+    const validationError =
+      selectedFiles.length > maxFiles
+        ? `You can upload up to ${maxFiles} ${pluralize("file", maxFiles)} at a time.`
+        : validateFiles(nextFiles, uploadAsset);
+
+    setFiles(nextFiles);
+    setStatus(
+      validationError
+        ? {
+            type: "error",
+            message: validationError,
+          }
+        : { type: "idle", message: "" },
+    );
   }
 
   return (
@@ -108,7 +126,9 @@ export default function UploadPage() {
             <UploadIcon className="size-5" />
           </div>
 
-          <h1 className="text-2xl font-semibold tracking-tight">Upload a file</h1>
+          <h1 className="text-2xl font-semibold tracking-tight">
+            Upload a file
+          </h1>
 
           <p className="mt-2 text-sm leading-6 text-zinc-500 dark:text-zinc-400">
             Select a file and upload it securely to your storage provider.
@@ -119,8 +139,10 @@ export default function UploadPage() {
           <input
             ref={inputRef}
             type="file"
+            accept={createFileInputAccept(uploadAsset)}
             className="sr-only"
-            onChange={(event) => handleFile(event.target.files?.[0] ?? null)}
+            multiple={allowsMultipleFiles}
+            onChange={(event) => handleFiles(event.target.files)}
           />
 
           <button
@@ -132,12 +154,14 @@ export default function UploadPage() {
               <FileIcon className="size-5" />
             </div>
 
-            {file ? (
+            {files.length > 0 ? (
               <>
-                <span className="max-w-full truncate text-sm font-medium">{file.name}</span>
+                <span className="max-w-full truncate text-sm font-medium">
+                  {formatSelectedFiles(files)}
+                </span>
 
                 <span className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
-                  {file.type || "Unknown type"} · {formatBytes(file.size)}
+                  {formatSelectedFilesMeta(files)}
                 </span>
 
                 <span className="mt-3 text-xs font-medium text-zinc-700 dark:text-zinc-300">
@@ -186,16 +210,57 @@ export default function UploadPage() {
                   : "border-zinc-200 bg-zinc-50 text-zinc-600 dark:border-zinc-800 dark:bg-zinc-950 dark:text-zinc-400",
             ].join(" ")}
           >
-            {status.type === "success" && <CheckIcon className="mt-0.5 size-4 shrink-0" />}
+            {status.type === "success" && (
+              <CheckIcon className="mt-0.5 size-4 shrink-0" />
+            )}
 
-            {status.type === "error" && <ErrorIcon className="mt-0.5 size-4 shrink-0" />}
+            {status.type === "error" && (
+              <ErrorIcon className="mt-0.5 size-4 shrink-0" />
+            )}
 
             {status.message}
           </div>
         )}
       </section>
     </main>
-  )
+  );
+}
+
+async function uploadFile(file: File) {
+  const contentType = file.type || "application/octet-stream";
+
+  const prepareResponse = await fetch("/api/upload", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      name: file.name,
+      contentType,
+      size: file.size,
+    }),
+  });
+
+  const prepared = (await prepareResponse.json()) as
+    | PreparedUpload
+    | { error?: string };
+
+  if (!prepareResponse.ok || !("url" in prepared)) {
+    throw new Error(
+      "error" in prepared && prepared.error
+        ? prepared.error
+        : "Failed to prepare upload.",
+    );
+  }
+
+  const uploadResponse =
+    prepared.strategy === "multipart"
+      ? await uploadMultipart(prepared, file)
+      : await uploadRaw(prepared, file, contentType);
+
+  if (!uploadResponse.ok) {
+    throw new Error((await uploadResponse.text()) || "File upload failed.");
+  }
 }
 
 async function uploadRaw(
@@ -203,46 +268,155 @@ async function uploadRaw(
   file: File,
   contentType: string,
 ) {
-  const headers = new Headers(prepared.headers)
+  const headers = new Headers(prepared.headers);
 
   if (!headers.has("content-type")) {
-    headers.set("content-type", contentType)
+    headers.set("content-type", contentType);
   }
 
   return fetch(prepared.url, {
     method: prepared.method,
     headers,
     body: file,
-  })
+  });
 }
 
 async function uploadMultipart(
   prepared: Extract<PreparedUpload, { strategy: "multipart" }>,
   file: File,
 ) {
-  const formData = new FormData()
+  const formData = new FormData();
 
   for (const [name, value] of Object.entries(prepared.fields)) {
-    formData.append(name, value)
+    formData.append(name, value);
   }
 
-  formData.append("file", file)
+  formData.append("file", file);
 
   return fetch(prepared.url, {
     method: prepared.method,
     headers: prepared.headers,
     body: formData,
-  })
+  });
 }
 
 function formatBytes(bytes: number) {
-  if (bytes === 0) return "0 bytes"
+  if (bytes === 0) return "0 bytes";
 
-  const units = ["bytes", "KB", "MB", "GB"]
-  const index = Math.floor(Math.log(bytes) / Math.log(1024))
-  const value = bytes / 1024 ** index
+  const units = ["bytes", "KB", "MB", "GB"];
+  const index = Math.floor(Math.log(bytes) / Math.log(1024));
+  const value = bytes / 1024 ** index;
 
-  return `${value.toFixed(index === 0 ? 0 : 1)} ${units[index]}`
+  return `${value.toFixed(index === 0 ? 0 : 1)} ${units[index]}`;
+}
+
+function createFileInputAccept(asset: typeof uploadAsset) {
+  return [
+    ...(asset.accept?.mimeTypes ?? []),
+    ...(asset.accept?.extensions ?? []).map((extension) => `.${extension}`),
+  ].join(",");
+}
+
+function formatSelectedFiles(files: File[]) {
+  if (files.length === 1) {
+    return files[0].name;
+  }
+
+  return `${files.length} ${pluralize("file", files.length)} selected`;
+}
+
+function formatSelectedFilesMeta(files: File[]) {
+  if (files.length === 1) {
+    const [file] = files;
+
+    return `${file.type || "Unknown type"} - ${formatBytes(file.size)}`;
+  }
+
+  const totalBytes = files.reduce((total, file) => total + file.size, 0);
+
+  return `${formatBytes(totalBytes)} total`;
+}
+
+function validateFiles(files: File[], asset: typeof uploadAsset): string | null {
+  if (files.length === 0) {
+    return null;
+  }
+
+  if (files.length > maxFiles) {
+    return `You can upload up to ${maxFiles} ${pluralize("file", maxFiles)} at a time.`;
+  }
+
+  for (const file of files) {
+    const validationError = validateFile(file, asset);
+
+    if (validationError) {
+      return files.length === 1 ? validationError : `${file.name}: ${validationError}`;
+    }
+  }
+
+  return null;
+}
+
+function validateFile(file: File, asset: typeof uploadAsset): string | null {
+  if (
+    asset.limits?.maxFileSizeBytes &&
+    file.size > asset.limits.maxFileSizeBytes
+  ) {
+    return `File must be ${formatBytes(asset.limits.maxFileSizeBytes)} or smaller.`;
+  }
+
+  const contentType = file.type.toLowerCase();
+
+  if (
+    asset.accept?.mimeTypes?.length &&
+    !asset.accept.mimeTypes.some((mimeType) =>
+      matchesMimeType(mimeType, contentType),
+    )
+  ) {
+    return `File type "${file.type || "unknown"}" is not allowed.`;
+  }
+
+  const extension = getFileExtension(file.name);
+
+  if (
+    asset.accept?.extensions?.length &&
+    (!extension ||
+      !asset.accept.extensions.some(
+        (acceptedExtension) => acceptedExtension.toLowerCase() === extension,
+      ))
+  ) {
+    return `File extension "${extension ? `.${extension}` : "none"}" is not allowed.`;
+  }
+
+  return null;
+}
+
+function matchesMimeType(acceptedMimeType: string, contentType: string) {
+  const normalizedAcceptedMimeType = acceptedMimeType.toLowerCase();
+
+  if (normalizedAcceptedMimeType === contentType) {
+    return true;
+  }
+
+  if (!normalizedAcceptedMimeType.endsWith("/*")) {
+    return false;
+  }
+
+  return contentType.startsWith(normalizedAcceptedMimeType.slice(0, -1));
+}
+
+function getFileExtension(filename: string) {
+  const lastDotIndex = filename.lastIndexOf(".");
+
+  if (lastDotIndex <= 0 || lastDotIndex === filename.length - 1) {
+    return null;
+  }
+
+  return filename.slice(lastDotIndex + 1).toLowerCase();
+}
+
+function pluralize(word: string, count: number) {
+  return count === 1 ? word : `${word}s`;
 }
 
 function UploadIcon({ className }: { className?: string }) {
@@ -261,7 +435,7 @@ function UploadIcon({ className }: { className?: string }) {
       <path d="m7 8 5-5 5 5" />
       <path d="M5 21h14" />
     </svg>
-  )
+  );
 }
 
 function FileIcon({ className }: { className?: string }) {
@@ -279,7 +453,7 @@ function FileIcon({ className }: { className?: string }) {
       <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
       <path d="M14 2v6h6" />
     </svg>
-  )
+  );
 }
 
 function CheckIcon({ className }: { className?: string }) {
@@ -296,7 +470,7 @@ function CheckIcon({ className }: { className?: string }) {
     >
       <path d="m20 6-11 11-5-5" />
     </svg>
-  )
+  );
 }
 
 function ErrorIcon({ className }: { className?: string }) {
@@ -315,5 +489,5 @@ function ErrorIcon({ className }: { className?: string }) {
       <path d="M12 8v4" />
       <path d="M12 16h.01" />
     </svg>
-  )
+  );
 }
