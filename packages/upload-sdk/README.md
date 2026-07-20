@@ -1,6 +1,6 @@
 # @marinedotsh/upload-sdk
 
-Generate provider-agnostic signed upload targets for S3, Cloudinary, and ImageKit.
+Generate provider-agnostic signed upload targets for S3 and ImageKit.
 
 ## Installation
 
@@ -31,6 +31,9 @@ const storageProfiles = defineStorageProfiles({
 const assets = defineAssets(storageProfiles, {
   avatar: {
     keyPrefix: "uploads/avatars",
+    limits: {
+      maxFileSize: { value: 1, unit: "MB" },
+    },
   },
 })
 
@@ -49,10 +52,13 @@ const preparedUpload = await uploader.prepareUpload("avatar", {
 
 `preparedUpload` returns a multipart upload target with form fields for direct browser `POST` uploads.
 
+`limits.maxFileSize` is checked before a provider signature is generated. Providers also receive
+the limit for upload-time enforcement: S3 uses a `content-length-range` policy, and ImageKit
+receives a V2 upload JWT that includes a `checks` expression.
+
 ## Providers
 
 - `awsS3`
-- `cloudinary`
 - `imageKit`
 
 ## License

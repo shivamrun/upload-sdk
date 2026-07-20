@@ -1,4 +1,5 @@
 import type { PrepareUploadOutput, ProviderPrepareUploadInput, StorageProvider } from "./../types"
+import { encodeBase64, hmacSha256, toHex } from "./../validation/crypto-utils"
 
 export type AwsS3Config = {
   bucket: string
@@ -112,63 +113,17 @@ function formatAmzDate(date: Date): string {
   return date.toISOString().replace(/[:-]|\.\d{3}/g, "")
 }
 
-const BASE64_ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/"
-
-function encodeBase64(value: string): string {
-  return encodeBase64Bytes(new TextEncoder().encode(value))
-}
-
-function encodeBase64Bytes(bytes: Uint8Array): string {
-  let output = ""
-
-  for (let index = 0; index < bytes.length; index += 3) {
-    const first = bytes[index]
-    const second = bytes[index + 1]
-    const third = bytes[index + 2]
-
-    output += BASE64_ALPHABET[first >> 2]
-    output += BASE64_ALPHABET[((first & 0b00000011) << 4) | ((second ?? 0) >> 4)]
-    output +=
-      second === undefined
-        ? "="
-        : BASE64_ALPHABET[((second & 0b00001111) << 2) | ((third ?? 0) >> 6)]
-    output += third === undefined ? "=" : BASE64_ALPHABET[third & 0b00111111]
-  }
-
-  return output
-}
 async function createSignature(
   secretAccessKey: string,
   dateStamp: string,
   region: string,
   encodedPolicy: string,
 ): Promise<string> {
-  const dateKey = await hmac(`AWS4${secretAccessKey}`, dateStamp)
-  const regionKey = await hmac(dateKey, region)
-  const serviceKey = await hmac(regionKey, "s3")
-  const signingKey = await hmac(serviceKey, "aws4_request")
-  const signature = await hmac(signingKey, encodedPolicy)
+  const dateKey = await hmacSha256(`AWS4${secretAccessKey}`, dateStamp)
+  const regionKey = await hmacSha256(dateKey, region)
+  const serviceKey = await hmacSha256(regionKey, "s3")
+  const signingKey = await hmacSha256(serviceKey, "aws4_request")
+  const signature = await hmacSha256(signingKey, encodedPolicy)
 
   return toHex(signature)
-}
-
-async function hmac(key: string | ArrayBuffer, value: string): Promise<ArrayBuffer> {
-  const cryptoKey = await crypto.subtle.importKey(
-    "raw",
-    typeof key === "string" ? new TextEncoder().encode(key) : key,
-    {
-      name: "HMAC",
-      hash: "SHA-256",
-    },
-    false,
-    ["sign"],
-  )
-
-  return crypto.subtle.sign("HMAC", cryptoKey, new TextEncoder().encode(value))
-}
-
-function toHex(buffer: ArrayBuffer): string {
-  return Array.from(new Uint8Array(buffer))
-    .map((byte) => byte.toString(16).padStart(2, "0"))
-    .join("")
 }

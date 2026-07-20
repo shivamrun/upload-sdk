@@ -1,6 +1,6 @@
 import "server-only"
 
-import { awsS3, cloudinary, defineStorageProfiles, imageKit } from "@marinedotsh/upload-sdk"
+import { awsS3, defineStorageProfiles, imageKit } from "@marinedotsh/upload-sdk"
 
 function requireEnv(name: string): string {
   const value = process.env[name]
@@ -24,11 +24,6 @@ export const storageProfiles = defineStorageProfiles({
   imagekit: imageKit({
     privateKey: requireEnv("IMAGEKIT_PRIVATE_KEY"),
     publicKey: requireEnv("IMAGEKIT_PUBLIC_KEY"),
-  }),
-  cloudinary: cloudinary({
-    cloudName: requireEnv("CLOUDINARY_CLOUD_NAME"),
-    apiKey: requireEnv("CLOUDINARY_API_KEY"),
-    apiSecret: requireEnv("CLOUDINARY_API_SECRET"),
   }),
 })
 
