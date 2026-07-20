@@ -16,6 +16,10 @@ export type ProviderPrepareUploadInput = {
   contentType: string
   expiresInSeconds?: number
   metadata?: UploadMetadata
+  accept?: {
+    mimeTypes?: readonly string[]
+    extensions?: readonly string[]
+  }
   limits?: {
     maxFileSizeBytes?: number
   }

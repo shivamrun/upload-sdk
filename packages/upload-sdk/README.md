@@ -52,9 +52,10 @@ const preparedUpload = await uploader.prepareUpload("avatar", {
 
 `preparedUpload` returns a multipart upload target with form fields for direct browser `POST` uploads.
 
-`limits.maxFileSize` is checked before a provider signature is generated. Providers also receive
-the limit for upload-time enforcement: S3 uses a `content-length-range` policy, and ImageKit
-receives a V2 upload JWT that includes a `checks` expression.
+`limits.maxFileSize` and `accept` rules are checked before a provider signature is generated.
+Providers also enforce the signed upload request where supported: S3 signs the generated key,
+content type, and size range into its POST policy, while ImageKit receives a V2 upload JWT with a
+`checks` expression for size and MIME type validation.
 
 ## Providers
 

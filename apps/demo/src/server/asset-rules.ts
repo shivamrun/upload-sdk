@@ -6,12 +6,12 @@ export const assets = {
     storageProfile: "awsS3",
     keyPrefix: "uploads/avatars",
     limits: {
-      maxFileSize: { value: 1, unit: "MB" },
+      maxFileSize: { value: 2, unit: "MB" },
       maxFiles: 3,
     },
     accept: {
       mimeTypes: ["image/*"],
-      extensions: ["jpg", "jpeg", "png", "webp", "gif"],
+      extensions: ["jpg"],
     },
   },
 

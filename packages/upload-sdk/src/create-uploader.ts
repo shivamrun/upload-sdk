@@ -25,7 +25,6 @@ export function createUploader<
     const asset = config.assets[assetName]
 
     const storageProfileName = asset.storageProfile ?? config.defaultStorageProfile
-
     const storageProfile = config.storageProfiles[storageProfileName]
 
     if (!storageProfile.prepareUpload) {
@@ -44,14 +43,17 @@ export function createUploader<
 
     const key = `${sanitizeKeyPrefix(asset.keyPrefix)}/${generateFileName(input.filename)}`
 
-    return storageProfile.prepareUpload({
+    const preparedUpload = await storageProfile.prepareUpload({
       key,
       contentType,
+      accept: asset.accept,
       metadata: asset.metadata,
       limits: {
         maxFileSizeBytes,
       },
     })
+
+    return preparedUpload
   }
 
   return {

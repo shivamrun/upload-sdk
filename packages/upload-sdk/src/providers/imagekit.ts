@@ -1,5 +1,6 @@
 import type { PrepareUploadOutput, ProviderPrepareUploadInput, StorageProvider } from "../types"
 import { encodeBase64Url, encodeBase64UrlBytes, hmacSha256 } from "./../validation/crypto-utils"
+import { acceptedContentTypeSchema } from "./../validation/zod-schema"
 
 export type ImageKitConfig = {
   publicKey: string
@@ -33,8 +34,10 @@ export function imageKit(config: ImageKitConfig): StorageProvider {
       overwrite: "false",
     }
 
-    if (input.limits?.maxFileSizeBytes) {
-      fields.checks = `"file.size" <= ${input.limits.maxFileSizeBytes}`
+    const checks = createUploadChecks(input)
+
+    if (checks) {
+      fields.checks = checks
     }
 
     if (input.metadata) {
@@ -70,6 +73,62 @@ export function imageKit(config: ImageKitConfig): StorageProvider {
 }
 
 type JwtPayload = Record<string, string | number>
+
+function createUploadChecks(input: ProviderPrepareUploadInput): string | undefined {
+  const checks = [
+    createFileSizeCheck(input.limits?.maxFileSizeBytes),
+    createMimeTypeCheck(input.accept?.mimeTypes),
+  ].filter((check): check is string => Boolean(check))
+
+  return checks.length ? checks.join(" AND ") : undefined
+}
+
+function createFileSizeCheck(maxFileSizeBytes: number | undefined): string | undefined {
+  return maxFileSizeBytes ? `"file.size" <= ${maxFileSizeBytes}` : undefined
+}
+
+function createMimeTypeCheck(
+  acceptedContentTypes: readonly string[] | undefined,
+): string | undefined {
+  if (!acceptedContentTypes?.length) {
+    return undefined
+  }
+
+  const normalizedAcceptedContentTypes = acceptedContentTypes.map((acceptedContentType) =>
+    acceptedContentTypeSchema.parse(acceptedContentType),
+  )
+  const exactContentTypes = normalizedAcceptedContentTypes.filter(
+    (contentType) => !contentType.endsWith("/*"),
+  )
+  const wildcardContentTypes = normalizedAcceptedContentTypes.filter((contentType) =>
+    contentType.endsWith("/*"),
+  )
+
+  const checks = [
+    createExactMimeTypeCheck(exactContentTypes),
+    ...wildcardContentTypes.map(
+      (contentType) => `"file.mime" : ${formatCheckValue(contentType.slice(0, -1))}`,
+    ),
+  ].filter((check): check is string => Boolean(check))
+
+  return checks.length === 1 ? checks[0] : `(${checks.join(" OR ")})`
+}
+
+function createExactMimeTypeCheck(contentTypes: string[]): string | undefined {
+  if (contentTypes.length === 0) {
+    return undefined
+  }
+
+  if (contentTypes.length === 1) {
+    return `"file.mime" = ${formatCheckValue(contentTypes[0])}`
+  }
+
+  return `"file.mime" IN [${contentTypes.map(formatCheckValue).join(", ")}]`
+}
+
+function formatCheckValue(value: string): string {
+  return JSON.stringify(value)
+}
 
 async function createJwt(payload: JwtPayload, config: ImageKitConfig): Promise<string> {
   const header = {
