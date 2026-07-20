@@ -1,6 +1,8 @@
 import "server-only"
 
 import { createUploader } from "@marinedotsh/upload-sdk"
-import { uploadConfig } from "./upload-config"
+import { createUploadConfig } from "./upload-config"
 
-export const uploader = createUploader(uploadConfig)
+export function createDemoUploader() {
+  return createUploader(createUploadConfig())
+}

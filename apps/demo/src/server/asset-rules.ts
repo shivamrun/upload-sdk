@@ -5,13 +5,14 @@ export const assets = {
   avatar: {
     storageProfile: "awsS3",
     keyPrefix: "uploads/avatars",
+    expiresIn: { value: 5, unit: "minutes" },
     limits: {
       maxFileSize: { value: 2, unit: "MB" },
       maxFiles: 3,
     },
     accept: {
       mimeTypes: ["image/*"],
-      extensions: ["jpg"],
+      extensions: ["png"],
     },
   },
 

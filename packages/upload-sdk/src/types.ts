@@ -11,6 +11,13 @@ export type FileSizeLimit = {
   unit: FileSizeUnit
 }
 
+export type DurationUnit = "seconds" | "minutes" | "hours"
+
+export type Duration = {
+  value: number
+  unit: DurationUnit
+}
+
 export type ProviderPrepareUploadInput = {
   key: string
   contentType: string
@@ -42,6 +49,7 @@ export type StorageProvider = {
 export type AssetUploadConfig<TStorageProfileName extends string = string> = {
   storageProfile?: TStorageProfileName
   keyPrefix: string
+  expiresIn?: Duration
 
   limits?: {
     maxFileSize?: FileSizeLimit

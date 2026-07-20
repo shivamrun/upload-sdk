@@ -1,3 +1,4 @@
+import { toUploadSDKError, UploadSDKError } from "../error"
 import type { AssetUploadConfig } from "../types"
 import { resolveFileSizeLimitBytes } from "./file-size"
 import {
@@ -16,7 +17,16 @@ type ValidateUploadInputOptions = {
 }
 
 export function validateUploadInput(options: ValidateUploadInputOptions): string {
-  const contentType = contentTypeSchema.parse(options.contentType)
+  let contentType: string
+
+  try {
+    contentType = contentTypeSchema.parse(options.contentType)
+  } catch (error) {
+    throw toUploadSDKError(error, {
+      code: "INVALID_UPLOAD_INPUT",
+      message: "Content type is invalid.",
+    })
+  }
 
   validateAcceptedContentType(options.asset.accept?.mimeTypes, contentType)
   validateAcceptedExtension(options.asset.accept?.extensions, options.fileExtension)
@@ -34,7 +44,7 @@ function validateAcceptedContentType(
   }
 
   const normalizedAcceptedContentTypes = acceptedContentTypes.map((acceptedContentType) =>
-    acceptedContentTypeSchema.parse(acceptedContentType),
+    parseAcceptedContentType(acceptedContentType),
   )
 
   if (
@@ -42,7 +52,9 @@ function validateAcceptedContentType(
       matchesAcceptedContentType(acceptedContentType, contentType),
     )
   ) {
-    throw new Error(`Content type "${contentType}" is not allowed`)
+    throw new UploadSDKError(`Content type "${contentType}" is not allowed`, {
+      code: "INVALID_UPLOAD_INPUT",
+    })
   }
 }
 
@@ -67,28 +79,74 @@ function validateAcceptedExtension(
   }
 
   if (!fileExtension) {
-    throw new Error("File extension is required")
+    throw new UploadSDKError("File extension is required", {
+      code: "INVALID_UPLOAD_INPUT",
+    })
   }
 
   const normalizedAcceptedExtensions = acceptedExtensions.map((extension) =>
-    acceptedExtensionSchema.parse(extension),
+    parseAcceptedExtension(extension),
   )
 
   if (!normalizedAcceptedExtensions.includes(fileExtension)) {
-    throw new Error(`File extension ".${fileExtension}" is not allowed`)
+    throw new UploadSDKError(`File extension ".${fileExtension}" is not allowed`, {
+      code: "INVALID_UPLOAD_INPUT",
+    })
   }
 }
 
 function validateFileSize(maxFileSizeBytes: number | undefined, size: number) {
-  const fileSize = fileSizeSchema.parse(size)
+  let fileSize: number
+
+  try {
+    fileSize = fileSizeSchema.parse(size)
+  } catch (error) {
+    throw toUploadSDKError(error, {
+      code: "INVALID_UPLOAD_INPUT",
+      message: "File size is invalid.",
+    })
+  }
 
   if (maxFileSizeBytes === undefined) {
     return
   }
 
-  const maxFileSize = maxFileSizeBytesSchema.parse(maxFileSizeBytes)
+  let maxFileSize: number
+
+  try {
+    maxFileSize = maxFileSizeBytesSchema.parse(maxFileSizeBytes)
+  } catch (error) {
+    throw toUploadSDKError(error, {
+      code: "INVALID_UPLOAD_CONFIG",
+      message: "Maximum file size limit is invalid.",
+    })
+  }
 
   if (fileSize > maxFileSize) {
-    throw new Error(`File size ${fileSize} exceeds maximum size ${maxFileSize}`)
+    throw new UploadSDKError(`File size ${fileSize} exceeds maximum size ${maxFileSize}`, {
+      code: "INVALID_UPLOAD_INPUT",
+    })
+  }
+}
+
+function parseAcceptedContentType(acceptedContentType: string): string {
+  try {
+    return acceptedContentTypeSchema.parse(acceptedContentType)
+  } catch (error) {
+    throw toUploadSDKError(error, {
+      code: "INVALID_UPLOAD_CONFIG",
+      message: "Accepted content type is invalid.",
+    })
+  }
+}
+
+function parseAcceptedExtension(extension: string): string {
+  try {
+    return acceptedExtensionSchema.parse(extension)
+  } catch (error) {
+    throw toUploadSDKError(error, {
+      code: "INVALID_UPLOAD_CONFIG",
+      message: "Accepted file extension is invalid.",
+    })
   }
 }

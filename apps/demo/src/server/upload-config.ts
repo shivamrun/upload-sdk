@@ -1,10 +1,12 @@
 import { defineUploadConfig } from "@marinedotsh/upload-sdk"
 
 import { assets } from "./asset-rules"
-import { storageProfiles } from "./providers"
+import { createStorageProfiles } from "./providers"
 
-export const uploadConfig = defineUploadConfig({
-  storageProfiles: storageProfiles,
-  defaultStorageProfile: "awsS3",
-  assets,
-})
+export function createUploadConfig() {
+  return defineUploadConfig({
+    storageProfiles: createStorageProfiles(),
+    defaultStorageProfile: "awsS3",
+    assets,
+  })
+}

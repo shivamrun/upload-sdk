@@ -1,3 +1,4 @@
+import { UploadSDKError } from "../error"
 import type { PrepareUploadOutput, ProviderPrepareUploadInput, StorageProvider } from "./../types"
 import { encodeBase64, hmacSha256, toHex } from "./../validation/crypto-utils"
 
@@ -19,13 +20,17 @@ export function awsS3(config: AwsS3Config): StorageProvider {
     const expiresInSeconds = input.expiresInSeconds ?? 300
 
     if (!Number.isInteger(expiresInSeconds) || expiresInSeconds < 1 || expiresInSeconds > 604_800) {
-      throw new Error("expiresInSeconds must be between 1 and 604800 seconds")
+      throw new UploadSDKError("expiresInSeconds must be between 1 and 604800 seconds", {
+        code: "INVALID_UPLOAD_CONFIG",
+      })
     }
 
     const key = input.key.replace(/^\/+/, "")
 
     if (!key) {
-      throw new Error("Upload key cannot be empty")
+      throw new UploadSDKError("Upload key cannot be empty", {
+        code: "INVALID_UPLOAD_CONFIG",
+      })
     }
 
     const now = new Date()

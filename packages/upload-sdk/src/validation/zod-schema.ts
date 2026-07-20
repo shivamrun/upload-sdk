@@ -53,6 +53,11 @@ export const fileSizeLimitSchema = z.object({
   unit: z.enum(["KB", "MB", "GB", "TB"]),
 })
 
+export const durationSchema = z.object({
+  value: z.number().positive("Duration must be greater than zero"),
+  unit: z.enum(["seconds", "minutes", "hours"]),
+})
+
 export const keyPrefixSegmentSchema = z
   .string()
   .min(1, "Key prefix segments cannot be empty")

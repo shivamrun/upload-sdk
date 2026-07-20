@@ -1,3 +1,4 @@
+import { toUploadSDKError } from "../error"
 import type { FileSizeLimit, FileSizeUnit } from "../types"
 import { fileSizeLimitSchema } from "./zod-schema"
 
@@ -13,7 +14,16 @@ export function resolveFileSizeLimitBytes(limit: FileSizeLimit | undefined): num
     return undefined
   }
 
-  const parsedLimit = fileSizeLimitSchema.parse(limit)
+  let parsedLimit: FileSizeLimit
+
+  try {
+    parsedLimit = fileSizeLimitSchema.parse(limit)
+  } catch (error) {
+    throw toUploadSDKError(error, {
+      code: "INVALID_UPLOAD_CONFIG",
+      message: "Maximum file size limit is invalid.",
+    })
+  }
 
   return parsedLimit.value * FILE_SIZE_UNIT_BYTES[parsedLimit.unit]
 }

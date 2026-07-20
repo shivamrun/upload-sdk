@@ -31,6 +31,7 @@ const storageProfiles = defineStorageProfiles({
 const assets = defineAssets(storageProfiles, {
   avatar: {
     keyPrefix: "uploads/avatars",
+    expiresIn: { value: 5, unit: "minutes" },
     limits: {
       maxFileSize: { value: 1, unit: "MB" },
     },
@@ -52,6 +53,7 @@ const preparedUpload = await uploader.prepareUpload("avatar", {
 
 `preparedUpload` returns a multipart upload target with form fields for direct browser `POST` uploads.
 
+`expiresIn` controls how long the generated provider upload target remains valid.
 `limits.maxFileSize` and `accept` rules are checked before a provider signature is generated.
 Providers also enforce the signed upload request where supported: S3 signs the generated key,
 content type, and size range into its POST policy, while ImageKit receives a V2 upload JWT with a

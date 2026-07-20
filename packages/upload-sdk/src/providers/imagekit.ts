@@ -1,3 +1,4 @@
+import { toUploadSDKError, UploadSDKError } from "../error"
 import type { PrepareUploadOutput, ProviderPrepareUploadInput, StorageProvider } from "../types"
 import { encodeBase64Url, encodeBase64UrlBytes, hmacSha256 } from "./../validation/crypto-utils"
 import { acceptedContentTypeSchema } from "./../validation/zod-schema"
@@ -12,13 +13,17 @@ export function imageKit(config: ImageKitConfig): StorageProvider {
     const expiresInSeconds = input.expiresInSeconds ?? 300
 
     if (!Number.isInteger(expiresInSeconds) || expiresInSeconds < 1 || expiresInSeconds > 3600) {
-      throw new Error("expiresInSeconds must be between 1 and 3600 seconds")
+      throw new UploadSDKError("expiresInSeconds must be between 1 and 3600 seconds", {
+        code: "INVALID_UPLOAD_CONFIG",
+      })
     }
 
     const key = input.key.replace(/^\/+/, "")
 
     if (!key) {
-      throw new Error("Upload key cannot be empty")
+      throw new UploadSDKError("Upload key cannot be empty", {
+        code: "INVALID_UPLOAD_CONFIG",
+      })
     }
 
     const issuedAt = Math.floor(Date.now() / 1000)
@@ -95,7 +100,7 @@ function createMimeTypeCheck(
   }
 
   const normalizedAcceptedContentTypes = acceptedContentTypes.map((acceptedContentType) =>
-    acceptedContentTypeSchema.parse(acceptedContentType),
+    parseAcceptedContentType(acceptedContentType),
   )
   const exactContentTypes = normalizedAcceptedContentTypes.filter(
     (contentType) => !contentType.endsWith("/*"),
@@ -128,6 +133,17 @@ function createExactMimeTypeCheck(contentTypes: string[]): string | undefined {
 
 function formatCheckValue(value: string): string {
   return JSON.stringify(value)
+}
+
+function parseAcceptedContentType(acceptedContentType: string): string {
+  try {
+    return acceptedContentTypeSchema.parse(acceptedContentType)
+  } catch (error) {
+    throw toUploadSDKError(error, {
+      code: "INVALID_UPLOAD_CONFIG",
+      message: "Accepted content type is invalid.",
+    })
+  }
 }
 
 async function createJwt(payload: JwtPayload, config: ImageKitConfig): Promise<string> {
