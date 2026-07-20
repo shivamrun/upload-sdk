@@ -10,17 +10,10 @@ const allowsMultipleFiles = maxFiles > 1;
 type PreparedUpload = {
   url: string;
   headers: Record<string, string>;
-} & (
-  | {
-      strategy: "raw";
-      method: "PUT";
-    }
-  | {
-      strategy: "multipart";
-      method: "POST";
-      fields: Record<string, string>;
-    }
-);
+  strategy: "multipart";
+  method: "POST";
+  fields: Record<string, string>;
+};
 
 type Status =
   | { type: "idle"; message: "" }
@@ -253,38 +246,14 @@ async function uploadFile(file: File) {
     );
   }
 
-  const uploadResponse =
-    prepared.strategy === "multipart"
-      ? await uploadMultipart(prepared, file)
-      : await uploadRaw(prepared, file, contentType);
+  const uploadResponse = await uploadMultipart(prepared, file);
 
   if (!uploadResponse.ok) {
     throw new Error((await uploadResponse.text()) || "File upload failed.");
   }
 }
 
-async function uploadRaw(
-  prepared: Extract<PreparedUpload, { strategy: "raw" }>,
-  file: File,
-  contentType: string,
-) {
-  const headers = new Headers(prepared.headers);
-
-  if (!headers.has("content-type")) {
-    headers.set("content-type", contentType);
-  }
-
-  return fetch(prepared.url, {
-    method: prepared.method,
-    headers,
-    body: file,
-  });
-}
-
-async function uploadMultipart(
-  prepared: Extract<PreparedUpload, { strategy: "multipart" }>,
-  file: File,
-) {
+async function uploadMultipart(prepared: PreparedUpload, file: File) {
   const formData = new FormData();
 
   for (const [name, value] of Object.entries(prepared.fields)) {
@@ -358,11 +327,10 @@ function validateFiles(files: File[], asset: typeof uploadAsset): string | null 
 }
 
 function validateFile(file: File, asset: typeof uploadAsset): string | null {
-  if (
-    asset.limits?.maxFileSizeBytes &&
-    file.size > asset.limits.maxFileSizeBytes
-  ) {
-    return `File must be ${formatBytes(asset.limits.maxFileSizeBytes)} or smaller.`;
+  const maxFileSizeBytes = resolveMaxFileSizeBytes(asset.limits?.maxFileSize);
+
+  if (maxFileSizeBytes && file.size > maxFileSizeBytes) {
+    return `File must be ${formatBytes(maxFileSizeBytes)} or smaller.`;
   }
 
   const contentType = file.type.toLowerCase();
@@ -413,6 +381,23 @@ function getFileExtension(filename: string) {
   }
 
   return filename.slice(lastDotIndex + 1).toLowerCase();
+}
+
+function resolveMaxFileSizeBytes(
+  limit: { value: number; unit: "KB" | "MB" | "GB" | "TB" } | undefined,
+) {
+  if (!limit) {
+    return undefined;
+  }
+
+  const unitBytes = {
+    KB: 1024,
+    MB: 1024 ** 2,
+    GB: 1024 ** 3,
+    TB: 1024 ** 4,
+  } satisfies Record<typeof limit.unit, number>;
+
+  return limit.value * unitBytes[limit.unit];
 }
 
 function pluralize(word: string, count: number) {

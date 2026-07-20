@@ -1,10 +1,11 @@
 import type { AssetUploadConfig } from "../types"
+import { resolveFileSizeLimitBytes } from "./file-size"
 import {
   acceptedContentTypeSchema,
   acceptedExtensionSchema,
   contentTypeSchema,
   fileSizeSchema,
-  maxFileSizeSchema,
+  maxFileSizeBytesSchema,
 } from "./zod-schema"
 
 type ValidateUploadInputOptions = {
@@ -19,7 +20,7 @@ export function validateUploadInput(options: ValidateUploadInputOptions): string
 
   validateAcceptedContentType(options.asset.accept?.mimeTypes, contentType)
   validateAcceptedExtension(options.asset.accept?.extensions, options.fileExtension)
-  validateFileSize(options.asset.limits?.maxFileSizeBytes, options.size)
+  validateFileSize(resolveFileSizeLimitBytes(options.asset.limits?.maxFileSize), options.size)
 
   return contentType
 }
@@ -85,7 +86,7 @@ function validateFileSize(maxFileSizeBytes: number | undefined, size: number) {
     return
   }
 
-  const maxFileSize = maxFileSizeSchema.parse(maxFileSizeBytes)
+  const maxFileSize = maxFileSizeBytesSchema.parse(maxFileSizeBytes)
 
   if (fileSize > maxFileSize) {
     throw new Error(`File size ${fileSize} exceeds maximum size ${maxFileSize}`)

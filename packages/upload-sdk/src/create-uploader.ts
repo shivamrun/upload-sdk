@@ -1,5 +1,6 @@
 import type { AssetUploadConfig, StorageProvider } from "./types"
 import { generateFileName, sanitizeFileName } from "./validation/file"
+import { resolveFileSizeLimitBytes } from "./validation/file-size"
 import { sanitizeKeyPrefix } from "./validation/key-prefix"
 import { validateUploadInput } from "./validation/upload-input"
 
@@ -32,7 +33,8 @@ export function createUploader<
     }
 
     const sanitizedFileName = sanitizeFileName(input.filename)
-    // TODO(limits): enforce maxFileSizeBytes at the provider/post-upload layer, not only via caller-reported size.
+    const maxFileSizeBytes = resolveFileSizeLimitBytes(asset.limits?.maxFileSize)
+
     const contentType = validateUploadInput({
       asset,
       contentType: input.contentType,
@@ -46,6 +48,9 @@ export function createUploader<
       key,
       contentType,
       metadata: asset.metadata,
+      limits: {
+        maxFileSizeBytes,
+      },
     })
   }
 

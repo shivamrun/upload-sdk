@@ -43,10 +43,15 @@ export const fileSizeSchema = z
   .int("File size must be an integer")
   .nonnegative("File size cannot be negative")
 
-export const maxFileSizeSchema = z
+export const maxFileSizeBytesSchema = z
   .number()
   .int("Maximum file size must be an integer")
   .positive("Maximum file size must be greater than zero")
+
+export const fileSizeLimitSchema = z.object({
+  value: z.number().positive("Maximum file size must be greater than zero"),
+  unit: z.enum(["KB", "MB", "GB", "TB"]),
+})
 
 export const keyPrefixSegmentSchema = z
   .string()

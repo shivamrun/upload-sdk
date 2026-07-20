@@ -47,7 +47,7 @@ const preparedUpload = await uploader.prepareUpload("avatar", {
 })
 ```
 
-`preparedUpload` returns either a raw upload target for direct `PUT` uploads or a multipart upload target with form fields for providers that need `POST` uploads.
+`preparedUpload` returns a multipart upload target with form fields for direct browser `POST` uploads.
 
 ## Providers
 

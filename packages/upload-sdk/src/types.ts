@@ -4,31 +4,32 @@ export type MetadataValue = string | number | boolean
 // metadata does not force unsupported fields or shapes onto every provider.
 export type UploadMetadata = Record<string, MetadataValue>
 
+export type FileSizeUnit = "KB" | "MB" | "GB" | "TB"
+
+export type FileSizeLimit = {
+  value: number
+  unit: FileSizeUnit
+}
+
 export type ProviderPrepareUploadInput = {
   key: string
   contentType: string
   expiresInSeconds?: number
   metadata?: UploadMetadata
+  limits?: {
+    maxFileSizeBytes?: number
+  }
 }
 
-export type PrepareUploadOutput =
-  | {
-      strategy: "raw"
-      url: string
-      method: "PUT"
-      headers: Record<string, string>
-      key: string
-      expiresAt: string
-    }
-  | {
-      strategy: "multipart"
-      url: string
-      method: "POST"
-      headers: Record<string, string>
-      fields: Record<string, string>
-      key: string
-      expiresAt: string
-    }
+export type PrepareUploadOutput = {
+  strategy: "multipart"
+  url: string
+  method: "POST"
+  headers: Record<string, string>
+  fields: Record<string, string>
+  key: string
+  expiresAt: string
+}
 
 export type StorageProvider = {
   prepareUpload(input: ProviderPrepareUploadInput): Promise<PrepareUploadOutput>
@@ -39,7 +40,7 @@ export type AssetUploadConfig<TStorageProfileName extends string = string> = {
   keyPrefix: string
 
   limits?: {
-    maxFileSizeBytes?: number
+    maxFileSize?: FileSizeLimit
     maxFiles?: number
     concurrency?: number
   }

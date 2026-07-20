@@ -1,5 +1,4 @@
 import type { AssetUploadConfig } from "@marinedotsh/upload-sdk"
-
 import type { StorageProfileName } from "./providers"
 
 export const assets = {
@@ -7,7 +6,7 @@ export const assets = {
     storageProfile: "awsS3",
     keyPrefix: "uploads/avatars",
     limits: {
-      maxFileSizeBytes: 1 * 1024 * 1024,
+      maxFileSize: { value: 1, unit: "MB" },
       maxFiles: 3,
     },
     accept: {
@@ -19,7 +18,7 @@ export const assets = {
   banner: {
     keyPrefix: "uploads/banners",
     limits: {
-      maxFileSizeBytes: 10 * 1024 * 1024,
+      maxFileSize: { value: 10, unit: "MB" },
     },
     accept: {
       mimeTypes: ["image/*"],
@@ -30,7 +29,7 @@ export const assets = {
   post: {
     keyPrefix: "uploads/posts",
     limits: {
-      maxFileSizeBytes: 25 * 1024 * 1024,
+      maxFileSize: { value: 25, unit: "MB" },
     },
     accept: {
       mimeTypes: ["image/*", "video/*"],
