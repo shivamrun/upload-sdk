@@ -1,3 +1,208 @@
 ---
+
 title: Limitations
+description: Understand the current scope of Upload SDK and the features your application must handle.
+
 ---
+
+Upload SDK focuses on preparing signed targets for direct file uploads.
+
+It is not a complete upload-management system. Your application is still responsible for several parts of the upload lifecycle.
+
+## Supported providers
+
+Upload SDK currently supports:
+
+* AWS S3
+* ImageKit
+
+<Note>
+Support for Cloudflare R2 is planned for a future release.
+</Note>
+
+Other storage providers are not currently supported.
+
+## Multipart uploads only
+
+The SDK currently prepares multipart form uploads:
+
+```ts
+{
+  strategy: "multipart",
+  method: "POST",
+}
+```
+
+It does not currently support:
+
+* Presigned `PUT` uploads
+* Chunked uploads
+* Resumable uploads
+* Provider multipart-upload sessions
+
+The client must submit the returned fields and file using `FormData`.
+
+## Client-reported file information
+
+`prepareUpload()` receives:
+
+```ts
+{
+  filename: string;
+  contentType: string;
+  size: number;
+}
+```
+
+The SDK checks these values against the selected asset rules.
+
+It does not read the actual file or confirm that:
+
+* The file bytes match the declared content type
+* The filename extension matches the real format
+* The file is safe
+* The file contains no malware
+* An image, video, or audio file can be decoded
+
+Use post-upload inspection when your application needs to trust the file contents.
+
+See [Upload Safety](/docs/getting-started/upload-safety) for more details.
+
+## Upload completion
+
+Upload SDK prepares the upload target, but it does not perform the upload or confirm that it completed.
+
+A successful call to:
+
+```ts
+await uploader.prepareUpload("avatar", input);
+```
+
+only means that a signed upload target was created.
+
+It does not mean:
+
+* The client sent the file
+* The provider accepted the upload
+* The object exists
+* The upload was saved in your database
+
+Your application must handle completion checks when they are required.
+
+## Authentication and authorization
+
+Upload SDK does not authenticate users or decide who may upload.
+
+Your application must:
+
+* Authenticate the request
+* Decide which asset the user may use
+* Prevent access to unauthorized assets
+* Apply rate limits when needed
+
+Your server should choose the asset after authorization:
+
+```ts
+await uploader.prepareUpload("avatar", input);
+```
+
+Do not allow the client to freely choose an asset, storage profile, bucket, or key prefix.
+
+## Single-file preparation
+
+Each call to `prepareUpload()` prepares one upload.
+
+```ts
+await uploader.prepareUpload("avatar", input);
+```
+
+The asset type currently includes:
+
+```ts
+limits: {
+  maxFiles?: number;
+  concurrency?: number;
+}
+```
+
+These fields are not currently enforced.
+
+Handle batch limits and concurrent uploads in your application.
+
+## No automatic retries
+
+The SDK does not retry:
+
+* Provider-signing failures
+* Network failures
+* Expired upload targets
+* Rejected provider uploads
+
+When a prepared upload expires, request a new one instead of reusing the old fields.
+
+Your application should decide which failures can safely be retried.
+
+## No persistence or cleanup
+
+Upload SDK does not:
+
+* Save upload records
+* Associate keys with users or resources
+* Remove abandoned uploads
+* Delete invalid files
+* Move verified files
+* Manage temporary storage
+* Handle provider webhooks
+
+These workflows depend on your application and storage setup.
+
+## Provider behavior differs
+
+The prepared-upload response has the same overall shape across AWS S3 and ImageKit, but each provider supports different signed constraints and fields.
+
+For example:
+
+* AWS S3 can include a signed content-length condition.
+* ImageKit uses its own token, checks, and metadata fields.
+* Expiration limits differ between providers.
+* Provider upload responses may have different bodies.
+
+Read the provider guide before depending on provider-specific behavior.
+
+## Error reporting
+
+The SDK provides machine-readable errors through `UploadSDKError`.
+
+Some configuration failures, such as an unknown asset or missing storage profile, may not yet receive a dedicated error code and can be reported as a broader provider error.
+
+Use type-safe asset and profile names where possible, and log SDK errors on the server.
+
+See [Validation and Errors](/docs/guides/validation-and-errors) for error-handling examples.
+
+## Application responsibilities
+
+For a production upload flow, your application may need to handle:
+
+* Authentication and authorization
+* Rate limiting
+* Client-side upload progress
+* Upload retries
+* Completion confirmation
+* Database persistence
+* File-content verification
+* Malware scanning
+* Cleanup of unused objects
+* Provider webhook processing
+
+The required steps depend on the type of files your application accepts and how much trust it needs.
+
+## Next steps
+
+* [Upload Safety:](/docs/getting-started/upload-safety)
+  Understand what the SDK checks and what it cannot verify.
+
+* [Validation and Errors:](/docs/guides/validation-and-errors)
+  Handle preparation failures and rejected uploads.
+
+* [How Uploads Work:](/docs/getting-started/how-uploads-work)
+  Review the complete upload lifecycle and application responsibilities.

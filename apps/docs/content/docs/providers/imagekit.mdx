@@ -14,10 +14,8 @@ The client sends the file directly to ImageKit. Your private key remains on the 
 Import `imageKit()` and add it to a storage profile:
 
 ```ts
-import {
-  defineStorageProfiles,
-  imageKit,
-} from "@marinedotsh/upload-sdk";
+import { defineStorageProfiles } from "@marinedotsh/upload-sdk";
+import { imageKit } from "@marinedotsh/upload-sdk/providers";
 
 const storageProfiles = defineStorageProfiles({
   imageUploads: imageKit({

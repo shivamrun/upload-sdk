@@ -15,7 +15,8 @@ yarn add @marinedotsh/upload-sdk
 ## Usage
 
 ```ts
-import { awsS3, createUploader, defineAssets, defineStorageProfiles } from "@marinedotsh/upload-sdk"
+import { createUploader, defineAssets, defineStorageProfiles } from "@marinedotsh/upload-sdk"
+import { awsS3 } from "@marinedotsh/upload-sdk/providers"
 
 const storageProfiles = defineStorageProfiles({
   s3: awsS3({

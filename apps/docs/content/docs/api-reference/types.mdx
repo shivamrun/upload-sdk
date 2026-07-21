@@ -5,17 +5,15 @@ description: Reference for the TypeScript types exported by Upload SDK.
 
 ---
 
-Import types from the package root:
+Import shared types from the package root and provider-specific config types from the provider subpath:
 
 ```ts
 import type {
   AssetUploadConfig,
-  AwsS3Config,
   Duration,
   DurationUnit,
   FileSizeLimit,
   FileSizeUnit,
-  ImageKitConfig,
   MetadataValue,
   PrepareUploadOutput,
   ProviderPrepareUploadInput,
@@ -23,6 +21,10 @@ import type {
   UploadMetadata,
   UploadSDKErrorCode,
 } from "@marinedotsh/upload-sdk";
+import type {
+  AwsS3Config,
+  ImageKitConfig,
+} from "@marinedotsh/upload-sdk/providers";
 ```
 
 ## `AssetUploadConfig`

@@ -14,10 +14,8 @@ The client sends the file directly to S3. Your AWS credentials remain on the ser
 Import `awsS3()` and add it to a storage profile:
 
 ```ts
-import {
-  awsS3,
-  defineStorageProfiles,
-} from "@marinedotsh/upload-sdk";
+import { defineStorageProfiles } from "@marinedotsh/upload-sdk";
+import { awsS3 } from "@marinedotsh/upload-sdk/providers";
 
 const storageProfiles = defineStorageProfiles({
   uploads: awsS3({

@@ -29,6 +29,13 @@
   "main": "./dist/index.cjs",
   "module": "./dist/index.mjs",
   "types": "./dist/index.d.mts",
+  "typesVersions": {
+    "*": {
+      "providers": [
+        "./dist/providers/index.d.mts"
+      ]
+    }
+  },
   "exports": {
     ".": {
       "import": {
@@ -41,6 +48,17 @@
       },
       "default": "./dist/index.mjs"
     },
+    "./providers": {
+      "import": {
+        "types": "./dist/providers/index.d.mts",
+        "default": "./dist/providers/index.mjs"
+      },
+      "require": {
+        "types": "./dist/providers/index.d.cts",
+        "default": "./dist/providers/index.cjs"
+      },
+      "default": "./dist/providers/index.mjs"
+    },
     "./package.json": "./package.json"
   },
   "files": [
@@ -50,13 +68,13 @@
     "node": ">=18"
   },
   "scripts": {
-    "build": "tsdown src/index.ts --dts --clean --format esm,cjs --target es2022 --tsconfig tsconfig.json",
+    "build": "tsdown src/index.ts src/providers/index.ts --root src --dts --clean --format esm,cjs --target es2022 --tsconfig tsconfig.json",
     "check": "pnpm lint && pnpm typecheck && pnpm build",
-    "dev": "tsdown src/index.ts --dts --watch --format esm,cjs --target es2022 --tsconfig tsconfig.json",
+    "dev": "tsdown src/index.ts src/providers/index.ts --root src --dts --watch --format esm,cjs --target es2022 --tsconfig tsconfig.json",
     "lint": "biome check .",
     "prepack": "pnpm build",
     "prepublishOnly": "pnpm run publish:check",
-    "publish:check": "pnpm run check && tsdown src/index.ts --dts --clean --format esm,cjs --target es2022 --tsconfig tsconfig.json --publint --attw && pnpm pack --dry-run",
+    "publish:check": "pnpm run check && tsdown src/index.ts src/providers/index.ts --root src --dts --clean --format esm,cjs --target es2022 --tsconfig tsconfig.json --publint --attw && pnpm pack --dry-run",
     "release": "pnpm run publish:check && changeset publish",
     "test": "pnpm typecheck",
     "typecheck": "tsc -p tsconfig.json --noEmit",

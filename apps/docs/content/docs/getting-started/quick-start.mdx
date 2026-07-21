@@ -35,11 +35,11 @@ Create a server-only file:
 // server/upload.ts
 
 import {
-  awsS3,
   createUploader,
   defineAssets,
   defineStorageProfiles,
 } from "@marinedotsh/upload-sdk";
+import { awsS3 } from "@marinedotsh/upload-sdk/providers";
 
 const storageProfiles = defineStorageProfiles({
   userUploads: awsS3({

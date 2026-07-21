@@ -2,7 +2,6 @@ import {
   ArrowRight,
   Braces,
   Check,
-  ChevronRight,
   Cloud,
   CloudUpload,
   Code2,
@@ -63,8 +62,7 @@ const workflow = [
   {
     number: "03",
     title: "Prepare",
-    description:
-      "Send file metadata to your server and call prepareUpload.",
+    description: "Send file metadata to your server and call prepareUpload.",
   },
   {
     number: "04",
@@ -118,11 +116,11 @@ const applicationHandles = [
 ];
 
 const setupCode = `import {
-  awsS3,
   createUploader,
   defineAssets,
   defineStorageProfiles,
 } from "@marinedotsh/upload-sdk";
+import { awsS3 } from "@marinedotsh/upload-sdk/providers";
 
 const storageProfiles = defineStorageProfiles({
   media: awsS3({
@@ -656,11 +654,7 @@ function ProvidersSection() {
   );
 }
 
-function ProviderCard({
-  provider,
-}: {
-  provider: (typeof providers)[number];
-}) {
+function ProviderCard({ provider }: { provider: (typeof providers)[number] }) {
   return (
     <article className="overflow-hidden rounded-2xl border bg-fd-background">
       <div className="flex items-start gap-5 p-7">
@@ -864,13 +858,7 @@ function SectionIntro({
   );
 }
 
-function CodeHeader({
-  filename,
-  label,
-}: {
-  filename: string;
-  label: string;
-}) {
+function CodeHeader({ filename, label }: { filename: string; label: string }) {
   return (
     <div className="flex items-center justify-between border-zinc-800 border-b px-5 py-4">
       <span className="flex items-center gap-2 font-mono text-xs text-zinc-400">
@@ -904,13 +892,7 @@ function CodeMetric({
   );
 }
 
-function DarkDefinition({
-  term,
-  value,
-}: {
-  term: string;
-  value: string;
-}) {
+function DarkDefinition({ term, value }: { term: string; value: string }) {
   return (
     <div>
       <dt className="font-mono text-[10px] uppercase tracking-[0.18em] text-zinc-600">

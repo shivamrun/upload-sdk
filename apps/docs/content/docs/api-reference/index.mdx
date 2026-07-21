@@ -5,20 +5,19 @@ description: Reference for the functions, provider factories, uploader methods, 
 
 ---
 
-Import public APIs from:
+Import core APIs and provider factories from:
 
 ```ts
 import {
   UploadSDKError,
-  awsS3,
   createUploader,
   defineAssets,
   defineStorageProfiles,
   defineUploadConfig,
-  imageKit,
   isUploadSDKError,
   toUploadSDKError,
 } from "@marinedotsh/upload-sdk";
+import { awsS3, imageKit } from "@marinedotsh/upload-sdk/providers";
 ```
 
 ## `defineStorageProfiles()`

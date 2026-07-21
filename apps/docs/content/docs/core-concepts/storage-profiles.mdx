@@ -11,10 +11,11 @@ It tells Upload SDK which provider, account, bucket, region, and credentials sho
 
 Upload SDK currently includes providers for AWS S3 and ImageKit only.
 
-Import the provider factory you need from `@marinedotsh/upload-sdk`:
+Import core SDK helpers from `@marinedotsh/upload-sdk` and provider factories from `@marinedotsh/upload-sdk/providers`:
 
 ```ts
-import { awsS3, imageKit } from "@marinedotsh/upload-sdk";
+import { defineStorageProfiles } from "@marinedotsh/upload-sdk";
+import { awsS3, imageKit } from "@marinedotsh/upload-sdk/providers";
 ```
 
 ```ts
