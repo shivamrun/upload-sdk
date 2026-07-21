@@ -1,3 +1,355 @@
 ---
+
 title: ImageKit
+description: Configure ImageKit and prepare signed multipart uploads.
+
 ---
+
+The ImageKit provider creates short-lived signed `POST` uploads for ImageKit.
+
+The client sends the file directly to ImageKit. Your private key remains on the server.
+
+## Configure the provider
+
+Import `imageKit()` and add it to a storage profile:
+
+```ts
+import {
+  defineStorageProfiles,
+  imageKit,
+} from "@marinedotsh/upload-sdk";
+
+const storageProfiles = defineStorageProfiles({
+  imageUploads: imageKit({
+    publicKey: process.env.IMAGEKIT_PUBLIC_KEY!,
+    privateKey: process.env.IMAGEKIT_PRIVATE_KEY!,
+  }),
+});
+```
+
+The provider requires:
+
+| Option       | Description                       |
+| ------------ | --------------------------------- |
+| `publicKey`  | Identifies your ImageKit account  |
+| `privateKey` | Signs upload tokens on the server |
+
+The profile name, `imageUploads`, is chosen by your application.
+
+See [Storage Profiles](/docs/core-concepts/storage-profiles) for profile naming and multiple storage destinations.
+
+## Environment variables
+
+Keep your ImageKit keys in server-side environment variables:
+
+```bash
+IMAGEKIT_PUBLIC_KEY=
+IMAGEKIT_PRIVATE_KEY=
+```
+
+<Warning>
+Never expose your ImageKit private key in browser code or public environment variables.
+</Warning>
+
+The public key may appear in signed upload information, but the private key is used only on the server.
+
+## How ImageKit uploads are signed
+
+The ImageKit provider creates a signed JWT token for the upload.
+
+The token includes:
+
+* The prepared upload fields
+* The issue time
+* The expiration time
+* Optional MIME checks
+* Optional custom metadata
+
+The prepared upload uses this endpoint:
+
+```yaml
+https://upload.imagekit.io/api/v2/files/upload
+```
+
+The client must submit the returned fields without changing them.
+
+## Filename and folder
+
+Upload SDK generates a complete storage key before calling ImageKit.
+
+For example:
+
+```yaml
+avatars/profile-550e8400-e29b-41d4-a716-446655440000.png
+```
+
+The ImageKit provider separates that key into:
+
+```yaml
+Folder:
+/avatars
+
+Filename:
+profile-550e8400-e29b-41d4-a716-446655440000.png
+```
+
+These values are returned as the `folder` and `fileName` form fields.
+
+When the key does not contain a folder, the provider sends `/` as the folder.
+
+## Prepared upload result
+
+An ImageKit prepared upload can look like this:
+
+```ts
+{
+  strategy: "multipart",
+  method: "POST",
+  url: "https://upload.imagekit.io/api/v2/files/upload",
+  headers: {},
+  fields: {
+    fileName:
+      "profile-550e8400-e29b-41d4-a716-446655440000.png",
+    folder: "/avatars",
+    useUniqueFileName: "false",
+    overwrite: "false",
+    checks: "mime-type checks",
+    customMetadata: "{\"purpose\":\"avatar\"}",
+    token: "signed-upload-token"
+  },
+  key: "avatars/profile-550e8400-e29b-41d4-a716-446655440000.png",
+  expiresAt: "2026-07-21T12:00:00.000Z"
+}
+```
+
+The `checks` and `customMetadata` fields are included only when the asset provides matching configuration.
+
+Do not create or modify the token or provider fields in browser code.
+
+## MIME-type checks
+
+When an asset defines accepted MIME types, the provider can include them in ImageKit's `checks` field.
+
+```ts
+const assets = defineAssets(storageProfiles, {
+  avatar: {
+    storageProfile: "imageUploads",
+    keyPrefix: "avatars",
+    accept: {
+      mimeTypes: ["image/png", "image/jpeg"],
+      extensions: [".png", ".jpg", ".jpeg"],
+    },
+  },
+});
+```
+
+The provider supports:
+
+* A single exact MIME type
+* Several allowed MIME types
+* Wildcard groups such as `image/*`
+
+Upload SDK first checks the content type reported by the client. ImageKit then receives the supported MIME checks in the signed upload fields.
+
+<Warning>
+MIME checks do not prove that the file contents match the reported type. Inspect the stored file when content-level verification is required.
+</Warning>
+
+## Metadata
+
+Asset metadata is sent to ImageKit as `customMetadata`.
+
+```ts
+const assets = defineAssets(storageProfiles, {
+  avatar: {
+    storageProfile: "imageUploads",
+    keyPrefix: "avatars",
+    metadata: {
+      purpose: "avatar",
+      temporary: true,
+      version: 1,
+    },
+  },
+});
+```
+
+The provider serializes the metadata as JSON:
+
+```ts
+customMetadata:
+  '{"purpose":"avatar","temporary":true,"version":1}'
+```
+
+<Warning>
+Do not put secrets or sensitive internal values in metadata. The prepared upload fields are returned to the client.
+</Warning>
+
+Your ImageKit account must also be configured to accept the custom metadata fields you use.
+
+## Overwrite behavior
+
+The provider returns:
+
+```ts
+{
+  useUniqueFileName: "false",
+  overwrite: "false",
+}
+```
+
+Upload SDK already adds a random UUID to the generated filename, so ImageKit does not need to create another unique name.
+
+Setting `overwrite` to `false` prevents ImageKit from replacing an existing file with the same path.
+
+The generated key is collision-resistant, but it is not mathematically collision-proof.
+
+## Upload expiration
+
+The asset's `expiresIn` setting controls how long the prepared upload remains valid.
+
+```ts
+expiresIn: {
+  value: 5,
+  unit: "minutes",
+}
+```
+
+ImageKit prepared uploads support an expiration between 1 second and 1 hour.
+
+When `expiresIn` is not configured, the provider uses 5 minutes.
+
+Examples:
+
+```ts
+expiresIn: {
+  value: 30,
+  unit: "seconds",
+}
+```
+
+```ts
+expiresIn: {
+  value: 15,
+  unit: "minutes",
+}
+```
+
+```ts
+expiresIn: {
+  value: 1,
+  unit: "hours",
+}
+```
+
+An expiration longer than one hour is rejected while preparing the upload.
+
+After the token expires, the client must request a new prepared upload.
+
+## File-size limits
+
+When an asset defines `limits.maxFileSize`, Upload SDK checks the size reported by the client before creating the ImageKit token.
+
+```ts
+limits: {
+  maxFileSize: {
+    value: 2,
+    unit: "MB",
+  },
+}
+```
+
+The ImageKit provider also adds the maximum file size to the signed `checks` field.
+
+This means the configured limit is enforced during `prepareUpload()` using the size reported by the client, and ImageKit receives a matching upload-size check in the prepared fields.
+
+Applications that require a trusted size check should verify the stored file after upload.
+
+## Uploading to ImageKit
+
+Add every returned field to `FormData`, then append the file:
+
+```ts
+const formData = new FormData();
+
+for (const [name, value] of Object.entries(
+  preparedUpload.fields,
+)) {
+  formData.append(name, value);
+}
+
+formData.append("file", file);
+
+const response = await fetch(preparedUpload.url, {
+  method: preparedUpload.method,
+  headers: preparedUpload.headers,
+  body: formData,
+});
+
+if (!response.ok) {
+  throw new Error("ImageKit rejected the upload.");
+}
+```
+
+<Warning>
+Do not manually set the multipart `Content-Type` header. The browser adds the required boundary automatically.
+</Warning>
+
+See [Browser Uploads](/docs/guides/browser-uploads) for the complete client flow.
+
+## Common errors
+
+### Invalid keys
+
+Incorrect or empty ImageKit keys can cause token creation or upload authorization to fail.
+
+Check the values in your server environment.
+
+### Invalid expiration
+
+ImageKit accepts an integer expiration from 1 to 3,600 seconds.
+
+Use an asset duration that fits within this range.
+
+### Signed fields were changed
+
+Do not rename, remove, or replace fields returned in `preparedUpload.fields`.
+
+The token covers the prepared values.
+
+### Token expired
+
+Request a new prepared upload instead of reusing an expired token.
+
+### MIME check failed
+
+Make sure the client submits a content type allowed by the asset's `accept.mimeTypes` configuration.
+
+### Metadata was rejected
+
+Check that the metadata fields are configured correctly in your ImageKit account and contain supported values.
+
+## Current limitations
+
+The ImageKit provider currently prepares uploads only.
+
+It does not:
+
+* Verify that the upload completed
+* Return a stored ImageKit file ID
+* Inspect the uploaded file
+* Detect the actual file type
+* Support resumable uploads
+* Configure ImageKit resource types
+
+Your application should handle completion, persistence, and post-upload verification when required.
+
+## Next steps
+
+* [AWS S3:](/docs/providers/aws-s3)
+  Configure the AWS S3 provider.
+
+* [Prepared Uploads:](/docs/core-concepts/prepared-uploads)
+  Understand the values returned by the ImageKit provider.
+
+* [Browser Uploads:](/docs/guides/browser-uploads)
+  Send the prepared multipart form from the client.

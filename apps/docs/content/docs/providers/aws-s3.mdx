@@ -1,3 +1,321 @@
 ---
+
 title: AWS S3
+description: Configure AWS S3 and prepare signed multipart uploads.
+
 ---
+
+The AWS S3 provider creates short-lived signed `POST` uploads for an S3 bucket.
+
+The client sends the file directly to S3. Your AWS credentials remain on the server.
+
+## Configure the provider
+
+Import `awsS3()` and add it to a storage profile:
+
+```ts
+import {
+  awsS3,
+  defineStorageProfiles,
+} from "@marinedotsh/upload-sdk";
+
+const storageProfiles = defineStorageProfiles({
+  uploads: awsS3({
+    bucket: process.env.AWS_BUCKET!,
+    region: process.env.AWS_REGION!,
+    credentials: {
+      accessKeyId: process.env.AWS_ACCESS_KEY_ID!,
+      secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY!,
+    },
+  }),
+});
+```
+
+The provider requires:
+
+| Option                        | Description                          |
+| ----------------------------- | ------------------------------------ |
+| `bucket`                      | The S3 bucket that receives uploads  |
+| `region`                      | The AWS region containing the bucket |
+| `credentials.accessKeyId`     | The access key used for signing      |
+| `credentials.secretAccessKey` | The secret key used for signing      |
+
+The profile name, `uploads`, is chosen by your application.
+
+See [Storage Profiles](/docs/core-concepts/storage-profiles) for profile naming and multiple storage destinations.
+
+## Environment variables
+
+Store the provider configuration in server-side environment variables:
+
+```bash
+AWS_BUCKET=
+AWS_REGION=
+AWS_ACCESS_KEY_ID=
+AWS_SECRET_ACCESS_KEY=
+```
+
+<Warning>
+Never expose AWS credentials in browser code or public environment variables.
+</Warning>
+
+## AWS permissions
+
+The configured AWS identity must be allowed to upload objects to the bucket.
+
+A limited IAM policy can look like this:
+
+```json
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Action": "s3:PutObject",
+      "Resource": "arn:aws:s3:::example-bucket/uploads/*"
+    }
+  ]
+}
+```
+
+Replace:
+
+```yaml
+example-bucket
+```
+
+with your bucket name, and:
+
+```yaml
+uploads/*
+```
+
+with the prefix your application uses.
+
+Keep permissions limited to the buckets and prefixes the SDK needs.
+
+<Note>
+The exact IAM policy depends on your AWS account, bucket policy, encryption settings, and application requirements.
+</Note>
+
+## Bucket CORS
+
+Because the browser uploads directly to S3, the bucket must allow requests from your application.
+
+A basic CORS configuration looks like this:
+
+```json
+[
+  {
+    "AllowedOrigins": [
+      "https://example.com"
+    ],
+    "AllowedMethods": [
+      "POST"
+    ],
+    "AllowedHeaders": [
+      "*"
+    ],
+    "MaxAgeSeconds": 3600
+  }
+]
+```
+
+Replace `https://example.com` with your application's origin.
+
+For local development, you may also need to allow your local origin:
+
+```json
+[
+  {
+    "AllowedOrigins": [
+      "http://localhost:3000",
+      "https://example.com"
+    ],
+    "AllowedMethods": [
+      "POST"
+    ],
+    "AllowedHeaders": [
+      "*"
+    ],
+    "MaxAgeSeconds": 3600
+  }
+]
+```
+
+Avoid using `"*"` for `AllowedOrigins` in production unless public cross-origin access is intentional.
+
+## How S3 uploads are signed
+
+The provider creates a presigned multipart `POST` policy.
+
+Depending on the selected upload asset, the policy can include conditions for:
+
+* The generated object key
+* The declared content type
+* The maximum upload size
+* The expiration time
+* Object metadata
+
+The client must submit the returned form fields exactly as they were prepared.
+
+Changing a signed field can cause S3 to reject the request.
+
+## Prepared upload result
+
+An S3 prepared upload can look like this:
+
+```ts
+{
+  strategy: "multipart",
+  method: "POST",
+  url: "https://example-bucket.s3.us-east-1.amazonaws.com",
+  headers: {},
+  fields: {
+    key: "avatars/profile-550e8400-e29b-41d4-a716-446655440000.png",
+    "Content-Type": "image/png",
+    "X-Amz-Algorithm": "AWS4-HMAC-SHA256",
+    "X-Amz-Credential": "...",
+    "X-Amz-Date": "...",
+    Policy: "...",
+    "X-Amz-Signature": "..."
+  },
+  key: "avatars/profile-550e8400-e29b-41d4-a716-446655440000.png",
+  expiresAt: "2026-07-21T12:00:00.000Z"
+}
+```
+
+The exact fields depend on the policy and credentials used for signing.
+
+Do not manually create or modify these fields in browser code.
+
+## Uploading to S3
+
+Add every returned field to `FormData`, then append the file:
+
+```ts
+const formData = new FormData();
+
+for (const [name, value] of Object.entries(
+  preparedUpload.fields,
+)) {
+  formData.append(name, value);
+}
+
+formData.append("file", file);
+
+const response = await fetch(preparedUpload.url, {
+  method: preparedUpload.method,
+  headers: preparedUpload.headers,
+  body: formData,
+});
+
+if (!response.ok) {
+  throw new Error("S3 rejected the upload.");
+}
+```
+
+Append the file after the signed fields.
+
+<Warning>
+Do not manually set the multipart `Content-Type` header. The browser adds the required boundary automatically.
+</Warning>
+
+See [Browser Uploads](/docs/guides/browser-uploads) for the complete client flow.
+
+## Temporary credentials
+
+Temporary AWS credentials may also include a session token.
+
+When temporary credentials are used, the signed upload includes the required security-token field.
+
+The client should submit it with the other returned fields without changing it.
+
+Temporary credentials must still remain in server-side configuration.
+
+## Upload expiration
+
+The asset's `expiresIn` setting controls how long the prepared upload remains valid.
+
+```ts
+expiresIn: {
+  value: 5,
+  unit: "minutes",
+}
+```
+
+After the signed policy expires, S3 rejects the upload.
+
+The client must request a new prepared upload instead of reusing the expired fields.
+
+## Upload-size limits
+
+When an asset defines `limits.maxFileSize`, the SDK checks the size reported by the client before signing:
+
+```ts
+limits: {
+  maxFileSize: {
+    value: 2,
+    unit: "MB",
+  },
+}
+```
+
+The S3 policy can also include a content-length condition so S3 rejects an uploaded body that exceeds the signed limit.
+
+<Warning>
+Preparation-time validation still uses the size reported by the client. Upload SDK does not inspect the actual file contents.
+</Warning>
+
+## Common errors
+
+### Incorrect bucket region
+
+The configured `region` must match the region containing the bucket.
+
+An incorrect region can produce redirect, signing, or authorization errors.
+
+### Missing AWS permissions
+
+The configured identity must have permission to upload objects to the target bucket and prefix.
+
+Check both IAM policies and the bucket policy.
+
+### Browser request blocked by CORS
+
+Make sure the bucket allows:
+
+* Your application's origin
+* The `POST` method
+* The required request headers
+
+### Signed fields were changed
+
+Do not rename, remove, or replace fields returned in `preparedUpload.fields`.
+
+The submitted form must match the signed policy.
+
+### Upload target expired
+
+Request a new prepared upload after the expiration time.
+
+### File exceeds the signed limit
+
+S3 rejects the request when the uploaded body exceeds the content-length condition in the policy.
+
+### Content type does not match
+
+Submit the same content type that was included in the prepared upload fields.
+
+Changing it can cause the signed policy check to fail.
+
+## Next steps
+
+* [ImageKit:](/docs/providers/imagekit)
+  Configure the ImageKit provider.
+
+* [Prepared Uploads:](/docs/core-concepts/prepared-uploads)
+  Understand the values returned by the S3 provider.
+
+* [Browser Uploads:](/docs/guides/browser-uploads)
+  Send the prepared multipart form from the client.

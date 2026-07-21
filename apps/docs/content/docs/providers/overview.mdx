@@ -1,0 +1,133 @@
+---
+
+title: Providers Overview
+description: Understand how Upload SDK prepares uploads for AWS S3 and ImageKit.
+
+---
+
+A provider is the integration between Upload SDK and a storage service.
+
+It handles the provider-specific work needed to create a signed upload target.
+
+Upload SDK currently includes providers for:
+
+* AWS S3
+* ImageKit
+
+<Note>
+Support for __Cloudflare R2__ is planned for a future release.
+</Note>
+
+
+## What a provider does
+
+After Upload SDK validates the reported file information and generates a storage key, the selected provider:
+
+* Creates a signed upload policy or token
+* Chooses the provider upload endpoint
+* Adds the required multipart form fields
+* Applies constraints supported by that provider
+* Returns a short-lived prepared upload
+
+For example:
+
+```ts
+const storageProfiles = defineStorageProfiles({
+  uploads: awsS3({
+    bucket: process.env.AWS_BUCKET!,
+    region: process.env.AWS_REGION!,
+    credentials: {
+      accessKeyId: process.env.AWS_ACCESS_KEY_ID!,
+      secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY!,
+    },
+  }),
+});
+```
+
+Here, `awsS3()` is the provider integration.
+
+The surrounding `uploads` name is the storage profile. Storage profiles are explained separately in [Storage Profiles](/docs/core-concepts/storage-profiles).
+
+## What changes between providers
+
+Each provider uses its own signing method and upload fields.
+
+### AWS S3
+
+AWS S3 creates a signed multipart `POST` policy.
+
+The returned fields can include:
+
+* The object key
+* A signed policy
+* AWS signature fields
+* The declared content type
+* Metadata
+* Upload-size constraints
+
+### ImageKit
+
+ImageKit creates a signed upload request.
+
+The returned fields can include:
+
+* A filename and folder
+* A signed token
+* Expiration
+* MIME checks
+* Metadata
+* Overwrite settings
+
+The exact configuration and returned fields are covered in each provider guide.
+
+## What stays the same
+
+Your application uses the same SDK flow with both providers:
+
+```ts
+const preparedUpload = await uploader.prepareUpload(
+  "avatar",
+  input,
+);
+```
+
+The client also follows the same multipart upload pattern:
+
+```ts
+const formData = new FormData();
+
+for (const [name, value] of Object.entries(
+  preparedUpload.fields,
+)) {
+  formData.append(name, value);
+}
+
+formData.append("file", file);
+
+await fetch(preparedUpload.url, {
+  method: preparedUpload.method,
+  headers: preparedUpload.headers,
+  body: formData,
+});
+```
+
+The provider changes the returned URL and fields. The overall upload flow stays the same.
+
+## Keep provider credentials on the server
+
+Provider configuration contains private credentials used to sign uploads.
+
+Keep it in server-only code.
+
+The client receives short-lived signed upload instructions, not your AWS or ImageKit private credentials.
+
+## Next steps
+
+* [AWS S3:](/docs/providers/aws-s3)
+  Configure S3 and understand its signed POST fields.
+
+* [ImageKit:](/docs/providers/imagekit)
+  Configure ImageKit and understand its signed upload fields.
+
+* [Storage Profiles:](/docs/core-concepts/storage-profiles)
+  Organize provider configurations by name.
