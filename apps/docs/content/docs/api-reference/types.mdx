@@ -1,3 +1,384 @@
 ---
+
 title: Types
+description: Reference for the TypeScript types exported by Upload SDK.
+
 ---
+
+Import types from the package root:
+
+```ts
+import type {
+  AssetUploadConfig,
+  AwsS3Config,
+  Duration,
+  DurationUnit,
+  FileSizeLimit,
+  FileSizeUnit,
+  ImageKitConfig,
+  MetadataValue,
+  PrepareUploadOutput,
+  ProviderPrepareUploadInput,
+  StorageProvider,
+  UploadMetadata,
+  UploadSDKErrorCode,
+} from "@marinedotsh/upload-sdk";
+```
+
+## `AssetUploadConfig`
+
+Defines the settings available for an upload asset.
+
+```ts
+type AssetUploadConfig<
+  TStorageProfileName extends string = string,
+> = {
+  storageProfile?: TStorageProfileName;
+  keyPrefix: string;
+  expiresIn?: Duration;
+
+  limits?: {
+    maxFileSize?: FileSizeLimit;
+    maxFiles?: number;
+    concurrency?: number;
+  };
+
+  accept?: {
+    mimeTypes?: string[];
+    extensions?: string[];
+  };
+
+  metadata?: UploadMetadata;
+};
+```
+
+| Property             | Required | Description                                |
+| -------------------- | -------- | ------------------------------------------ |
+| `storageProfile`     | No       | Storage profile used by the asset          |
+| `keyPrefix`          | Yes      | Path added before the generated filename   |
+| `expiresIn`          | No       | How long the prepared upload remains valid |
+| `limits.maxFileSize` | No       | Maximum reported file size                 |
+| `limits.maxFiles`    | No       | Batch limit field; not currently enforced  |
+| `limits.concurrency` | No       | Concurrency field; not currently enforced  |
+| `accept.mimeTypes`   | No       | Accepted client-reported MIME types        |
+| `accept.extensions`  | No       | Accepted filename extensions               |
+| `metadata`           | No       | Static metadata included with the upload   |
+
+```ts
+const avatar: AssetUploadConfig<"imageUploads"> = {
+  storageProfile: "imageUploads",
+  keyPrefix: "avatars",
+  accept: {
+    mimeTypes: ["image/png", "image/jpeg"],
+    extensions: [".png", ".jpg", ".jpeg"],
+  },
+  limits: {
+    maxFileSize: {
+      value: 2,
+      unit: "MB",
+    },
+  },
+};
+```
+
+See [Upload Assets](/docs/core-concepts/upload-assets).
+
+## `PrepareUploadOutput`
+
+The signed upload instructions returned by `prepareUpload()`.
+
+```ts
+type PrepareUploadOutput = {
+  strategy: "multipart";
+  url: string;
+  method: "POST";
+  headers: Record<string, string>;
+  fields: Record<string, string>;
+  key: string;
+  expiresAt: string;
+};
+```
+
+| Property    | Description                      |
+| ----------- | -------------------------------- |
+| `strategy`  | Upload request format            |
+| `url`       | Provider upload endpoint         |
+| `method`    | HTTP method used for the upload  |
+| `headers`   | Headers required by the provider |
+| `fields`    | Signed multipart form fields     |
+| `key`       | Generated storage key            |
+| `expiresAt` | Expiration as an ISO 8601 string |
+
+The only supported strategy is currently `"multipart"` with method `"POST"`.
+
+```ts
+const preparedUpload: PrepareUploadOutput =
+  await uploader.prepareUpload("avatar", input);
+```
+
+See [Prepared Uploads](/docs/core-concepts/prepared-uploads).
+
+## Prepare-upload input
+
+`uploader.prepareUpload()` accepts:
+
+```ts
+{
+  filename: string;
+  contentType: string;
+  size: number;
+}
+```
+
+| Property      | Description                   |
+| ------------- | ----------------------------- |
+| `filename`    | Client-reported filename      |
+| `contentType` | Client-reported MIME type     |
+| `size`        | Client-reported size in bytes |
+
+```ts
+await uploader.prepareUpload("avatar", {
+  filename: "profile.png",
+  contentType: "image/png",
+  size: 120_000,
+});
+```
+
+<Note>
+The prepare-upload input is not currently exported as a named public type. TypeScript infers it from `uploader.prepareUpload()`.
+</Note>
+
+## `FileSizeUnit`
+
+Units accepted by `FileSizeLimit`.
+
+```ts
+type FileSizeUnit =
+  | "KB"
+  | "MB"
+  | "GB"
+  | "TB";
+```
+
+## `FileSizeLimit`
+
+A human-readable file-size limit.
+
+```ts
+type FileSizeLimit = {
+  value: number;
+  unit: FileSizeUnit;
+};
+```
+
+```ts
+const limit: FileSizeLimit = {
+  value: 20,
+  unit: "MB",
+};
+```
+
+The SDK converts the configured value to bytes before preparing the upload.
+
+## `DurationUnit`
+
+Units accepted by `Duration`.
+
+```ts
+type DurationUnit =
+  | "seconds"
+  | "minutes"
+  | "hours";
+```
+
+## `Duration`
+
+A duration used for prepared-upload expiration.
+
+```ts
+type Duration = {
+  value: number;
+  unit: DurationUnit;
+};
+```
+
+```ts
+const expiration: Duration = {
+  value: 5,
+  unit: "minutes",
+};
+```
+
+The selected provider may apply its own minimum and maximum expiration.
+
+## `MetadataValue`
+
+A value supported in upload metadata.
+
+```ts
+type MetadataValue =
+  | string
+  | number
+  | boolean;
+```
+
+## `UploadMetadata`
+
+A record of metadata values.
+
+```ts
+type UploadMetadata =
+  Record<string, MetadataValue>;
+```
+
+```ts
+const metadata: UploadMetadata = {
+  purpose: "avatar",
+  version: 1,
+  temporary: true,
+};
+```
+
+Providers encode metadata differently.
+
+<Warning>
+Do not put secrets or private credentials in upload metadata. Provider fields are returned to the client.
+</Warning>
+
+## `AwsS3Config`
+
+Configuration accepted by `awsS3()`.
+
+```ts
+type AwsS3Config = {
+  bucket: string;
+  region: string;
+
+  credentials: {
+    accessKeyId: string;
+    secretAccessKey: string;
+    sessionToken?: string;
+  };
+};
+```
+
+| Property                      | Required | Description                           |
+| ----------------------------- | -------- | ------------------------------------- |
+| `bucket`                      | Yes      | S3 bucket name                        |
+| `region`                      | Yes      | AWS region containing the bucket      |
+| `credentials.accessKeyId`     | Yes      | AWS access key ID                     |
+| `credentials.secretAccessKey` | Yes      | AWS secret access key                 |
+| `credentials.sessionToken`    | No       | Token used with temporary credentials |
+
+```ts
+const config: AwsS3Config = {
+  bucket: process.env.AWS_BUCKET!,
+  region: process.env.AWS_REGION!,
+  credentials: {
+    accessKeyId: process.env.AWS_ACCESS_KEY_ID!,
+    secretAccessKey:
+      process.env.AWS_SECRET_ACCESS_KEY!,
+    sessionToken: process.env.AWS_SESSION_TOKEN,
+  },
+};
+```
+
+See [AWS S3](/docs/providers/aws-s3).
+
+## `ImageKitConfig`
+
+Configuration accepted by `imageKit()`.
+
+```ts
+type ImageKitConfig = {
+  publicKey: string;
+  privateKey: string;
+};
+```
+
+| Property     | Description                      |
+| ------------ | -------------------------------- |
+| `publicKey`  | ImageKit public key              |
+| `privateKey` | Private key used to sign uploads |
+
+```ts
+const config: ImageKitConfig = {
+  publicKey: process.env.IMAGEKIT_PUBLIC_KEY!,
+  privateKey: process.env.IMAGEKIT_PRIVATE_KEY!,
+};
+```
+
+See [ImageKit](/docs/providers/imagekit).
+
+## `UploadSDKErrorCode`
+
+The machine-readable codes used by `UploadSDKError`.
+
+```ts
+type UploadSDKErrorCode =
+  | "INVALID_UPLOAD_INPUT"
+  | "INVALID_UPLOAD_CONFIG"
+  | "UNSUPPORTED_UPLOAD_OPERATION"
+  | "UPLOAD_PROVIDER_ERROR";
+```
+
+| Code                           | Meaning                                              |
+| ------------------------------ | ---------------------------------------------------- |
+| `INVALID_UPLOAD_INPUT`         | Reported file information is invalid or not accepted |
+| `INVALID_UPLOAD_CONFIG`        | Asset or provider configuration is invalid           |
+| `UNSUPPORTED_UPLOAD_OPERATION` | The requested operation is not supported             |
+| `UPLOAD_PROVIDER_ERROR`        | The provider could not prepare the upload            |
+
+See [Validation and Errors](/docs/guides/validation-and-errors).
+
+## Provider-facing types
+
+Most applications do not need to use these types directly. They describe the contract between the uploader and its provider implementations.
+
+### `ProviderPrepareUploadInput`
+
+Normalized information passed to a provider after asset validation and key generation.
+
+```ts
+type ProviderPrepareUploadInput = {
+  key: string;
+  contentType: string;
+  expiresInSeconds?: number;
+  metadata?: UploadMetadata;
+
+  accept?: {
+    mimeTypes?: string[];
+  };
+
+  limits?: {
+    maxFileSizeBytes?: number;
+  };
+};
+```
+
+Filename extensions are validated before this stage, so the provider receives the final generated key rather than the original filename.
+
+### `StorageProvider`
+
+The provider shape used by the uploader.
+
+```ts
+type StorageProvider = {
+  prepareUpload(
+    input: ProviderPrepareUploadInput,
+  ): Promise<PrepareUploadOutput>;
+};
+```
+
+The built-in `awsS3()` and `imageKit()` factories return this shape.
+
+## Next steps
+
+* [API Reference:](/docs/api-reference)
+  View the public functions and uploader methods.
+
+* [Prepared Uploads:](/docs/core-concepts/prepared-uploads)
+  Understand the upload result in more detail.
+
+* [Validation and Errors:](/docs/guides/validation-and-errors)
+  Handle SDK errors in your server routes.

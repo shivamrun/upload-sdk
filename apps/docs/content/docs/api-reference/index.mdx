@@ -1,3 +1,533 @@
 ---
+
 title: API Reference
+description: Reference for the functions, provider factories, uploader methods, and error helpers exported by Upload SDK.
+
 ---
+
+Import public APIs from:
+
+```ts
+import {
+  UploadSDKError,
+  awsS3,
+  createUploader,
+  defineAssets,
+  defineStorageProfiles,
+  defineUploadConfig,
+  imageKit,
+  isUploadSDKError,
+  toUploadSDKError,
+} from "@marinedotsh/upload-sdk";
+```
+
+## `defineStorageProfiles()`
+
+Defines named provider configurations and preserves their names for TypeScript.
+
+```ts
+function defineStorageProfiles<
+  const TStorageProfiles extends Record<
+    string,
+    StorageProvider
+  >,
+>(
+  storageProfiles: TStorageProfiles,
+): TStorageProfiles
+```
+
+### Parameters
+
+| Parameter         | Description                                        |
+| ----------------- | -------------------------------------------------- |
+| `storageProfiles` | An object containing named provider configurations |
+
+### Returns
+
+The same object passed to the function.
+
+`defineStorageProfiles()` does not change the profiles or validate provider credentials. Its main purpose is to preserve profile names for type checking.
+
+### Example
+
+```ts
+const storageProfiles = defineStorageProfiles({
+  userUploads: awsS3({
+    bucket: process.env.AWS_BUCKET!,
+    region: process.env.AWS_REGION!,
+    credentials: {
+      accessKeyId: process.env.AWS_ACCESS_KEY_ID!,
+      secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY!,
+    },
+  }),
+});
+```
+
+See [Storage Profiles](/docs/core-concepts/storage-profiles).
+
+## `defineAssets()`
+
+Defines named upload assets and connects their `storageProfile` values to the available storage profiles.
+
+```ts
+function defineAssets<
+  const TStorageProfiles extends Record<
+    string,
+    StorageProvider
+  >,
+  const TAssets extends Record<
+    string,
+    AssetUploadConfig<
+      keyof TStorageProfiles & string
+    >
+  >,
+>(
+  storageProfiles: TStorageProfiles,
+  assets: TAssets,
+): TAssets
+```
+
+### Parameters
+
+| Parameter         | Description                                         |
+| ----------------- | --------------------------------------------------- |
+| `storageProfiles` | The profiles created with `defineStorageProfiles()` |
+| `assets`          | Named upload asset configurations                   |
+
+### Returns
+
+The same asset object passed to the function.
+
+`defineAssets()` preserves asset names and checks profile references through TypeScript. Runtime validation happens later when `prepareUpload()` is called.
+
+### Example
+
+```ts
+const assets = defineAssets(storageProfiles, {
+  avatar: {
+    storageProfile: "userUploads",
+    keyPrefix: "avatars",
+    accept: {
+      mimeTypes: ["image/png", "image/jpeg"],
+      extensions: [".png", ".jpg", ".jpeg"],
+    },
+    limits: {
+      maxFileSize: {
+        value: 2,
+        unit: "MB",
+      },
+    },
+  },
+});
+```
+
+See [Upload Assets](/docs/core-concepts/upload-assets).
+
+## `defineUploadConfig()`
+
+Defines the complete uploader configuration as one object.
+
+```ts
+function defineUploadConfig<
+  const TStorageProfiles extends Record<
+    string,
+    StorageProvider
+  >,
+  const TAssets extends Record<
+    string,
+    AssetUploadConfig<
+      keyof TStorageProfiles & string
+    >
+  >,
+>(config: {
+  storageProfiles: TStorageProfiles;
+  defaultStorageProfile:
+    keyof TStorageProfiles & string;
+  assets: TAssets;
+}): {
+  storageProfiles: TStorageProfiles;
+  defaultStorageProfile:
+    keyof TStorageProfiles & string;
+  assets: TAssets;
+}
+```
+
+### Parameters
+
+| Property                | Description                                    |
+| ----------------------- | ---------------------------------------------- |
+| `storageProfiles`       | Named provider configurations                  |
+| `defaultStorageProfile` | Profile used when an asset does not select one |
+| `assets`                | Named upload asset configurations              |
+
+### Returns
+
+The same configuration object passed to the function.
+
+### Example
+
+```ts
+const uploadConfig = defineUploadConfig({
+  storageProfiles,
+  defaultStorageProfile: "userUploads",
+  assets,
+});
+```
+
+The result can be passed directly to `createUploader()`:
+
+```ts
+const uploader = createUploader(uploadConfig);
+```
+
+## `createUploader()`
+
+Creates an uploader from storage profiles and upload assets.
+
+```ts
+const uploader = createUploader({
+  storageProfiles,
+  defaultStorageProfile,
+  assets,
+});
+```
+
+### Parameters
+
+| Property                | Description                                     |
+| ----------------------- | ----------------------------------------------- |
+| `storageProfiles`       | Profiles created with `defineStorageProfiles()` |
+| `defaultStorageProfile` | Profile used when an asset does not select one  |
+| `assets`                | Assets created with `defineAssets()`            |
+
+`defaultStorageProfile` must match a name in `storageProfiles`.
+
+### Returns
+
+An uploader with a `prepareUpload()` method:
+
+```ts
+{
+  prepareUpload(
+    assetName,
+    input,
+  ): Promise<PrepareUploadOutput>
+}
+```
+
+### Example
+
+```ts
+export const uploader = createUploader({
+  storageProfiles,
+  defaultStorageProfile: "userUploads",
+  assets,
+});
+```
+
+## `uploader.prepareUpload()`
+
+Validates client-reported file information and asks the selected provider to create a signed upload target.
+
+```ts
+uploader.prepareUpload(
+  assetName,
+  input,
+): Promise<PrepareUploadOutput>
+```
+
+### Parameters
+
+#### `assetName`
+
+The name of an asset passed to `defineAssets()`.
+
+```ts
+"avatar"
+```
+
+Asset names are checked by TypeScript.
+
+#### `input`
+
+```ts
+{
+  filename: string;
+  contentType: string;
+  size: number;
+}
+```
+
+| Property      | Description                   |
+| ------------- | ----------------------------- |
+| `filename`    | Client-reported filename      |
+| `contentType` | Client-reported MIME type     |
+| `size`        | Client-reported size in bytes |
+
+### Returns
+
+A promise that resolves to `PrepareUploadOutput`.
+
+```ts
+const preparedUpload =
+  await uploader.prepareUpload("avatar", {
+    filename: "profile.png",
+    contentType: "image/png",
+    size: 120_000,
+  });
+```
+
+### Throws
+
+Throws an `UploadSDKError` when validation, configuration, or provider preparation fails.
+
+```ts
+try {
+  const preparedUpload =
+    await uploader.prepareUpload("avatar", input);
+} catch (error) {
+  if (isUploadSDKError(error)) {
+    console.error(error.code, error.message);
+  }
+}
+```
+
+See [Prepared Uploads](/docs/core-concepts/prepared-uploads).
+
+## `awsS3()`
+
+Creates an AWS S3 provider.
+
+```ts
+function awsS3(
+  config: AwsS3Config,
+): StorageProvider
+```
+
+### Configuration
+
+```ts
+type AwsS3Config = {
+  bucket: string;
+  region: string;
+  credentials: {
+    accessKeyId: string;
+    secretAccessKey: string;
+    sessionToken?: string;
+  };
+};
+```
+
+| Property                      | Required | Description                             |
+| ----------------------------- | -------- | --------------------------------------- |
+| `bucket`                      | Yes      | S3 bucket name                          |
+| `region`                      | Yes      | AWS region containing the bucket        |
+| `credentials.accessKeyId`     | Yes      | AWS access key ID                       |
+| `credentials.secretAccessKey` | Yes      | AWS secret access key                   |
+| `credentials.sessionToken`    | No       | Session token for temporary credentials |
+
+### Example
+
+```ts
+const provider = awsS3({
+  bucket: process.env.AWS_BUCKET!,
+  region: process.env.AWS_REGION!,
+  credentials: {
+    accessKeyId: process.env.AWS_ACCESS_KEY_ID!,
+    secretAccessKey:
+      process.env.AWS_SECRET_ACCESS_KEY!,
+    sessionToken: process.env.AWS_SESSION_TOKEN,
+  },
+});
+```
+
+Keep AWS credentials in server-only code.
+
+See [AWS S3](/docs/providers/aws-s3).
+
+## `imageKit()`
+
+Creates an ImageKit provider.
+
+```ts
+function imageKit(
+  config: ImageKitConfig,
+): StorageProvider
+```
+
+### Configuration
+
+```ts
+type ImageKitConfig = {
+  publicKey: string;
+  privateKey: string;
+};
+```
+
+| Property     | Required | Description                           |
+| ------------ | -------- | ------------------------------------- |
+| `publicKey`  | Yes      | ImageKit public key                   |
+| `privateKey` | Yes      | ImageKit private key used for signing |
+
+### Example
+
+```ts
+const provider = imageKit({
+  publicKey: process.env.IMAGEKIT_PUBLIC_KEY!,
+  privateKey: process.env.IMAGEKIT_PRIVATE_KEY!,
+});
+```
+
+Keep the private key in server-only code.
+
+See [ImageKit](/docs/providers/imagekit).
+
+## `isUploadSDKError()`
+
+Checks whether an unknown value is an `UploadSDKError`.
+
+```ts
+function isUploadSDKError(
+  error: unknown,
+): error is UploadSDKError
+```
+
+### Parameters
+
+| Parameter | Description        |
+| --------- | ------------------ |
+| `error`   | The value to check |
+
+### Returns
+
+`true` when the value is an `UploadSDKError`.
+
+### Example
+
+```ts
+try {
+  await uploader.prepareUpload("avatar", input);
+} catch (error) {
+  if (isUploadSDKError(error)) {
+    console.error({
+      code: error.code,
+      message: error.message,
+      statusCode: error.statusCode,
+      details: error.details,
+    });
+  }
+}
+```
+
+## `UploadSDKError`
+
+The error class used for expected SDK failures.
+
+```ts
+class UploadSDKError extends Error {
+  readonly code: UploadSDKErrorCode;
+  readonly statusCode: number;
+  readonly details?: unknown;
+}
+```
+
+### Constructor
+
+```ts
+new UploadSDKError(message, {
+  code,
+  statusCode,
+  cause,
+  details,
+});
+```
+
+| Parameter    | Required | Description                     |
+| ------------ | -------- | ------------------------------- |
+| `message`    | Yes      | Readable error message          |
+| `code`       | Yes      | Machine-readable SDK error code |
+| `statusCode` | No       | Suggested HTTP status           |
+| `cause`      | No       | Original error                  |
+| `details`    | No       | Extra diagnostic information    |
+
+### Example
+
+```ts
+throw new UploadSDKError(
+  "The reported file type is not allowed.",
+  {
+    code: "INVALID_UPLOAD_INPUT",
+    statusCode: 400,
+  },
+);
+```
+
+The default status is `400` for `INVALID_UPLOAD_INPUT` and `500` for other SDK error codes.
+
+Most applications should catch errors created by the SDK rather than create them directly.
+
+## `toUploadSDKError()`
+
+Converts an unknown error into an `UploadSDKError`.
+
+```ts
+function toUploadSDKError(
+  error: unknown,
+  fallback: {
+    code: UploadSDKErrorCode;
+    message: string;
+    statusCode?: number;
+    details?: unknown;
+  },
+): UploadSDKError
+```
+
+When `error` is already an `UploadSDKError`, it is returned unchanged.
+
+Otherwise, the function creates a new error using the fallback values and keeps the original error as its cause.
+
+### Example
+
+```ts
+try {
+  await performOperation();
+} catch (error) {
+  throw toUploadSDKError(error, {
+    code: "UPLOAD_PROVIDER_ERROR",
+    message: "Upload could not be prepared.",
+    statusCode: 500,
+  });
+}
+```
+
+Most applications only need `isUploadSDKError()`. `toUploadSDKError()` is useful when normalizing errors in server-side SDK integrations.
+
+## Error codes
+
+```ts
+type UploadSDKErrorCode =
+  | "INVALID_UPLOAD_INPUT"
+  | "INVALID_UPLOAD_CONFIG"
+  | "UNSUPPORTED_UPLOAD_OPERATION"
+  | "UPLOAD_PROVIDER_ERROR";
+```
+
+| Code                           | Meaning                                             |
+| ------------------------------ | --------------------------------------------------- |
+| `INVALID_UPLOAD_INPUT`         | Reported file information is invalid or not allowed |
+| `INVALID_UPLOAD_CONFIG`        | Asset or provider configuration is invalid          |
+| `UNSUPPORTED_UPLOAD_OPERATION` | The selected operation is not supported             |
+| `UPLOAD_PROVIDER_ERROR`        | The provider could not prepare the upload           |
+
+See [Validation and Errors](/docs/guides/validation-and-errors) for error-handling examples.
+
+## Next steps
+
+* [Types:](/docs/types)
+  View all exported TypeScript types.
+
+* [Validation and Errors:](/docs/guides/validation-and-errors)
+  Handle validation and provider preparation failures.
+
+* [Quick Start:](/docs/getting-started/quick-start)
+  Configure the SDK and prepare your first upload.

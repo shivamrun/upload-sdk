@@ -1,3 +1,253 @@
 ---
+
 title: Browser Uploads
+description: Request a prepared upload and send a file directly from the browser.
+
 ---
+
+The browser upload flow has two requests:
+
+1. Send file information to your application server.
+2. Send the file directly to the storage provider.
+
+The file does not pass through your application server.
+
+## Select a file
+
+A browser provides the selected file as a `File` object:
+
+```ts
+const file = input.files?.[0];
+
+if (!file) {
+  throw new Error("Select a file first.");
+}
+```
+
+The client can read the information required by `prepareUpload()`:
+
+```ts
+const input = {
+  filename: file.name,
+  contentType: file.type,
+  size: file.size,
+};
+```
+
+These values are reported by the browser and should be treated as untrusted.
+
+## Request a prepared upload
+
+Send the file information to an endpoint in your application:
+
+```ts
+import type { PrepareUploadOutput } from "@marinedotsh/upload-sdk";
+
+async function prepareAvatarUpload(
+  file: File,
+): Promise<PrepareUploadOutput> {
+  const response = await fetch("/api/uploads/avatar", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      filename: file.name,
+      contentType: file.type,
+      size: file.size,
+    }),
+  });
+
+  if (!response.ok) {
+    throw new Error("Could not prepare the upload.");
+  }
+
+  return response.json();
+}
+```
+
+Your server should authenticate and authorize the request before calling:
+
+```ts
+uploader.prepareUpload("avatar", input);
+```
+
+The response contains the signed instructions needed for the direct upload.
+
+## Build the multipart form
+
+Create `FormData` and add every field returned by the provider:
+
+```ts
+const formData = new FormData();
+
+for (const [name, value] of Object.entries(
+  preparedUpload.fields,
+)) {
+  formData.append(name, value);
+}
+```
+
+Then append the file:
+
+```ts
+formData.append("file", file);
+```
+
+Do not rename, remove, or change the returned fields. They may be covered by the provider signature.
+
+<Warning>
+Do not manually set the multipart `Content-Type` header. The browser adds the required boundary automatically.
+</Warning>
+
+## Send the file
+
+Submit the form to the returned provider URL:
+
+```ts
+const response = await fetch(preparedUpload.url, {
+  method: preparedUpload.method,
+  headers: preparedUpload.headers,
+  body: formData,
+});
+
+if (!response.ok) {
+  throw new Error("The provider rejected the upload.");
+}
+```
+
+The file is sent directly from the browser to AWS S3 or ImageKit.
+
+The same browser flow works for both providers. The returned URL and signed fields are provider-specific.
+
+## Complete example
+
+```ts
+import type { PrepareUploadOutput } from "@marinedotsh/upload-sdk";
+
+async function requestPreparedUpload(
+  file: File,
+): Promise<PrepareUploadOutput> {
+  const response = await fetch("/api/uploads/avatar", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      filename: file.name,
+      contentType: file.type,
+      size: file.size,
+    }),
+  });
+
+  if (!response.ok) {
+    throw new Error("Could not prepare the upload.");
+  }
+
+  return response.json();
+}
+
+async function sendFileToProvider(
+  file: File,
+  preparedUpload: PrepareUploadOutput,
+): Promise<void> {
+  const formData = new FormData();
+
+  for (const [name, value] of Object.entries(
+    preparedUpload.fields,
+  )) {
+    formData.append(name, value);
+  }
+
+  formData.append("file", file);
+
+  const response = await fetch(preparedUpload.url, {
+    method: preparedUpload.method,
+    headers: preparedUpload.headers,
+    body: formData,
+  });
+
+  if (!response.ok) {
+    throw new Error("The provider rejected the upload.");
+  }
+}
+
+export async function uploadAvatar(
+  file: File,
+): Promise<string> {
+  const preparedUpload =
+    await requestPreparedUpload(file);
+
+  await sendFileToProvider(file, preparedUpload);
+
+  return preparedUpload.key;
+}
+```
+
+The returned key identifies the intended storage location.
+
+<Warning>
+A returned key does not prove that the object exists until the provider accepts the upload.
+</Warning>
+
+## Handle expired uploads
+
+Prepared uploads are short-lived.
+
+When an upload target expires, request a new one:
+
+```ts
+const preparedUpload =
+  await requestPreparedUpload(file);
+```
+
+Do not reuse old signed fields or try to change their expiration in the browser.
+
+## Handle provider responses
+
+AWS S3 and ImageKit may return different response bodies.
+
+For a provider-independent flow, check the HTTP status:
+
+```ts
+if (!response.ok) {
+  throw new Error(
+    `Upload failed with status ${response.status}.`,
+  );
+}
+```
+
+Only parse the response body when your application needs provider-specific data.
+
+## After the upload
+
+After the provider accepts the file, your application may need to:
+
+* Save the generated key
+* Associate it with a user or database record
+* Confirm that the object exists
+* Inspect the actual file contents
+* Delete invalid or abandoned uploads
+
+Upload SDK prepares the upload target. It does not confirm completion or inspect the stored file.
+
+## Rules to remember
+
+* Send only file information to the preparation endpoint.
+* Add every returned field to `FormData`.
+* Append the file after the provider fields.
+* Use the returned URL, method, and headers.
+* Do not manually set multipart `Content-Type`.
+* Do not change signed fields.
+* Request a new target after expiration.
+
+## Next steps
+
+* [Prepared Uploads:](/docs/core-concepts/prepared-uploads)
+  Understand every value returned by `prepareUpload()`.
+
+* [Validation and Errors:](/docs/guides/validation-and-errors)
+  Handle rejected file information and preparation failures.
+
+* [Upload Safety:](/docs/getting-started/upload-safety)
+  Learn what the SDK checks before signing.

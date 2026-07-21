@@ -1,3 +1,372 @@
 ---
+
 title: Validation and Errors
+description: Handle rejected upload information, invalid configuration, and provider preparation failures.
 ---
+
+`prepareUpload()` throws an error when it cannot create a prepared upload.
+
+Failures can happen because:
+
+* The client-reported file information is invalid
+* The information does not match the selected asset
+* The asset or provider configuration is invalid
+* The provider cannot create the signed upload target
+
+No prepared upload is returned when an error is thrown.
+
+## When validation happens
+
+Upload SDK validates the input before asking the provider to sign the upload.
+
+```ts
+await uploader.prepareUpload("avatar", {
+  filename: "profile.png",
+  contentType: "image/png",
+  size: 120_000,
+});
+```
+
+The SDK can reject the request when:
+
+* The filename is missing or invalid
+* The filename extension is not allowed
+* The declared content type is invalid or not allowed
+* The declared size is invalid
+* The declared size exceeds the asset limit
+
+For example, an avatar asset may accept only PNG and JPEG files:
+
+```ts
+const assets = defineAssets(storageProfiles, {
+  avatar: {
+    keyPrefix: "avatars",
+    accept: {
+      mimeTypes: ["image/png", "image/jpeg"],
+      extensions: [".png", ".jpg", ".jpeg"],
+    },
+    limits: {
+      maxFileSize: {
+        value: 2,
+        unit: "MB",
+      },
+    },
+  },
+});
+```
+
+This request is rejected:
+
+```ts
+{
+  filename: "profile.exe",
+  contentType: "image/png",
+  size: 120_000,
+}
+```
+
+The declared content type is allowed, but the filename extension is not.
+
+See [Upload Safety](/docs/getting-started/upload-safety) for the complete validation model.
+
+## SDK errors
+
+Upload SDK throws `UploadSDKError` instances for expected preparation failures.
+
+Use `isUploadSDKError()` to identify them safely:
+
+```ts
+import {
+  isUploadSDKError,
+} from "@marinedotsh/upload-sdk";
+
+try {
+  const preparedUpload =
+    await uploader.prepareUpload("avatar", input);
+
+  return preparedUpload;
+} catch (error) {
+  if (isUploadSDKError(error)) {
+    console.error({
+      code: error.code,
+      message: error.message,
+      statusCode: error.statusCode,
+    });
+  }
+
+  throw error;
+}
+```
+
+An SDK error can contain:
+
+| Property     | Description                                          |
+| ------------ | ---------------------------------------------------- |
+| `code`       | A machine-readable error code                        |
+| `message`    | A readable explanation                               |
+| `statusCode` | A suggested HTTP status                              |
+| `details`    | Optional extra information for server-side debugging |
+
+## Error codes
+
+Upload SDK currently uses these error codes:
+
+| Code                           | Meaning                                                        |
+| ------------------------------ | -------------------------------------------------------------- |
+| `INVALID_UPLOAD_INPUT`         | Client-reported file information is invalid or not allowed     |
+| `INVALID_UPLOAD_CONFIG`        | An asset or provider setting is invalid                        |
+| `UNSUPPORTED_UPLOAD_OPERATION` | The selected provider does not support the requested operation |
+| `UPLOAD_PROVIDER_ERROR`        | The provider could not prepare the upload                      |
+
+## `INVALID_UPLOAD_INPUT`
+
+This error is caused by information passed to `prepareUpload()`.
+
+Common reasons include:
+
+* An invalid filename
+* A missing or disallowed extension
+* An invalid or disallowed content type
+* A negative or invalid size
+* A size larger than the asset limit
+
+```ts
+if (
+  isUploadSDKError(error) &&
+  error.code === "INVALID_UPLOAD_INPUT"
+) {
+  return Response.json(
+    {
+      code: error.code,
+      message: error.message,
+    },
+    {
+      status: error.statusCode,
+    },
+  );
+}
+```
+
+These errors are normally safe to describe to the client because the user can correct the selected file.
+
+## `INVALID_UPLOAD_CONFIG`
+
+This error means the SDK configuration cannot be used.
+
+Common reasons include:
+
+* An invalid `keyPrefix`
+* An invalid `expiresIn` value
+* An invalid file-size configuration
+* An expiration outside the provider's supported range
+* Missing provider values required during signing
+
+This usually indicates a server-side configuration problem rather than a problem the user can fix.
+
+Log the error on the server and return a general message to the client.
+
+## `UNSUPPORTED_UPLOAD_OPERATION`
+
+This error means the selected provider cannot prepare the requested upload operation.
+
+Upload SDK currently prepares multipart `POST` uploads.
+
+This error is more likely to indicate an incompatible provider implementation or SDK configuration than invalid client input.
+
+## `UPLOAD_PROVIDER_ERROR`
+
+This error means the provider could not create the signed upload target.
+
+Possible causes include:
+
+* Invalid provider credentials
+* Incorrect provider configuration
+* A signing failure
+* Missing runtime cryptography support
+* An unexpected provider implementation error
+
+Do not return internal error details or causes directly to the browser.
+
+## Handle errors in a server endpoint
+
+The following example returns input errors to the client while keeping configuration and provider failures private:
+
+```ts
+import {
+  isUploadSDKError,
+} from "@marinedotsh/upload-sdk";
+
+import { uploader } from "./upload";
+
+type PrepareUploadInput = {
+  filename: string;
+  contentType: string;
+  size: number;
+};
+
+export async function prepareAvatarUpload(
+  input: PrepareUploadInput,
+): Promise<Response> {
+  try {
+    const preparedUpload =
+      await uploader.prepareUpload("avatar", input);
+
+    return Response.json(preparedUpload);
+  } catch (error) {
+    if (isUploadSDKError(error)) {
+      console.error({
+        code: error.code,
+        message: error.message,
+        statusCode: error.statusCode,
+        details: error.details,
+      });
+
+      if (error.code === "INVALID_UPLOAD_INPUT") {
+        return Response.json(
+          {
+            code: error.code,
+            message: error.message,
+          },
+          {
+            status: error.statusCode,
+          },
+        );
+      }
+
+      return Response.json(
+        {
+          code: error.code,
+          message: "Could not prepare the upload.",
+        },
+        {
+          status: error.statusCode,
+        },
+      );
+    }
+
+    console.error(error);
+
+    return Response.json(
+      {
+        message: "Could not prepare the upload.",
+      },
+      {
+        status: 500,
+      },
+    );
+  }
+}
+```
+
+Your endpoint should authenticate and authorize the request before calling `prepareUpload()`.
+
+## Do not expose internal details
+
+Error details and causes may contain information intended only for server logs.
+
+Avoid returning:
+
+```ts
+{
+  details: error.details,
+  cause: error.cause,
+}
+```
+
+Instead, return:
+
+* A stable error code
+* A safe message
+* An appropriate HTTP status
+
+Keep full diagnostic information in server logs.
+
+## Handle errors in the browser
+
+The browser can read the response from your preparation endpoint:
+
+```ts
+const response = await fetch("/api/uploads/avatar", {
+  method: "POST",
+  headers: {
+    "Content-Type": "application/json",
+  },
+  body: JSON.stringify({
+    filename: file.name,
+    contentType: file.type,
+    size: file.size,
+  }),
+});
+
+if (!response.ok) {
+  const error = await response.json();
+
+  throw new Error(
+    error.message ?? "Could not prepare the upload.",
+  );
+}
+
+const preparedUpload = await response.json();
+```
+
+Use the returned message to explain what the user should change, such as selecting a supported file type or a smaller file.
+
+## Preparation errors and upload errors are different
+
+`UploadSDKError` covers failures while your server is preparing the upload.
+
+After preparation, the browser sends the file directly to the provider:
+
+```ts
+const response = await fetch(preparedUpload.url, {
+  method: preparedUpload.method,
+  headers: preparedUpload.headers,
+  body: formData,
+});
+```
+
+A failure from this request is a provider upload failure, not a `prepareUpload()` error.
+
+The provider may reject the upload because:
+
+* The prepared upload expired
+* A signed field was changed
+* A required field is missing
+* The uploaded body exceeds a signed limit
+* The provider's CORS configuration is incorrect
+* The network request failed
+
+At minimum, check the provider response status:
+
+```ts
+if (!response.ok) {
+  throw new Error(
+    `Upload failed with status ${response.status}.`,
+  );
+}
+```
+
+When the target has expired, request a new prepared upload rather than reusing the old fields.
+
+## Troubleshooting
+
+| Problem                    | Check                                              |
+| -------------------------- | -------------------------------------------------- |
+| File type rejected         | `accept.mimeTypes` and `accept.extensions`         |
+| File too large             | `limits.maxFileSize`                               |
+| Invalid storage path       | The asset's `keyPrefix`                            |
+| Upload expires too early   | The asset's `expiresIn`                            |
+| Provider preparation fails | Credentials, provider settings, and server runtime |
+| Browser upload is blocked  | Provider CORS configuration                        |
+| Provider rejects the form  | Missing or changed signed fields                   |
+
+## Next steps
+
+* [Upload Safety:](/docs/getting-started/upload-safety)
+  Understand what the SDK checks before provider signing.
+
+* [Upload Assets:](/docs/core-concepts/upload-assets)
+  Configure accepted file information, limits, and expiration.
+
+* [API Reference:](/docs/api-reference)
+  View the complete error types and `prepareUpload()` contract.
