@@ -2,6 +2,7 @@ import { Inter } from "next/font/google";
 import { Provider } from "@/components/provider";
 import "./global.css";
 import { metadata, structuredData } from "@/lib/metadata";
+import { Analytics } from "@vercel/analytics/next";
 
 const inter = Inter({
   subsets: ["latin"],
@@ -19,6 +20,7 @@ export default function Layout({ children }: LayoutProps<"/">) {
           dangerouslySetInnerHTML={{ __html: JSON.stringify(structuredData) }}
         />
         <Provider>{children}</Provider>
+        <Analytics />
       </body>
     </html>
   );
