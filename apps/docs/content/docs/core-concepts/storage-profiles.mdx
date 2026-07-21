@@ -1,3 +1,350 @@
 ---
+
 title: Storage Profiles
+description: Configure and organize the storage destinations used by your upload assets.
+
 ---
+
+A storage profile is a named provider configuration.
+
+It tells Upload SDK which provider, account, bucket, region, and credentials should be used for an upload.
+
+Upload SDK currently includes providers for AWS S3 and ImageKit only.
+
+Import the provider factory you need from `@marinedotsh/upload-sdk`:
+
+```ts
+import { awsS3, imageKit } from "@marinedotsh/upload-sdk";
+```
+
+```ts
+const storageProfiles = defineStorageProfiles({
+  userUploads: awsS3({
+    bucket: process.env.AWS_BUCKET!,
+    region: process.env.AWS_REGION!,
+    credentials: {
+      accessKeyId: process.env.AWS_ACCESS_KEY_ID!,
+      secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY!,
+    },
+  }),
+});
+```
+
+In this example:
+
+* `userUploads` is the profile name.
+* `awsS3(...)` configures the provider.
+* The profile contains the settings required to prepare uploads.
+
+## Profile names
+
+Profile names are chosen by your application.
+
+They do not need to match the provider name.
+
+```ts
+const storageProfiles = defineStorageProfiles({
+  avatarsBucket: awsS3(/* ... */),
+  privateDocuments: awsS3(/* ... */),
+  optimizedImages: imageKit(/* ... */),
+});
+```
+
+Choose names that describe what the storage destination is used for.
+
+```ts
+userUploads
+privateDocuments
+marketingAssets
+optimizedImages
+archiveBucket
+```
+
+A name such as `userUploads` is usually clearer than a generic name such as `providerOne`.
+
+## Multiple profiles
+
+One application can use several storage profiles.
+
+```ts
+const storageProfiles = defineStorageProfiles({
+  publicMedia: awsS3({
+    bucket: process.env.PUBLIC_MEDIA_BUCKET!,
+    region: process.env.PUBLIC_MEDIA_REGION!,
+    credentials: {
+      accessKeyId: process.env.PUBLIC_MEDIA_ACCESS_KEY_ID!,
+      secretAccessKey: process.env.PUBLIC_MEDIA_SECRET_ACCESS_KEY!,
+    },
+  }),
+
+  privateDocuments: awsS3({
+    bucket: process.env.PRIVATE_DOCUMENTS_BUCKET!,
+    region: process.env.PRIVATE_DOCUMENTS_REGION!,
+    credentials: {
+      accessKeyId: process.env.PRIVATE_DOCUMENTS_ACCESS_KEY_ID!,
+      secretAccessKey: process.env.PRIVATE_DOCUMENTS_SECRET_ACCESS_KEY!,
+    },
+  }),
+
+  optimizedImages: imageKit({
+    publicKey: process.env.IMAGEKIT_PUBLIC_KEY!,
+    privateKey: process.env.IMAGEKIT_PRIVATE_KEY!,
+  }),
+});
+```
+
+Profiles can separate:
+
+* Different buckets
+* Different provider accounts
+* Different regions
+* Different credentials
+* Public and private destinations
+* AWS S3 and ImageKit uploads
+
+Two profiles can use the same provider while pointing to different buckets or accounts.
+
+## Default storage profile
+
+Every uploader has a default storage profile.
+
+```ts
+const uploader = createUploader({
+  storageProfiles,
+  defaultStorageProfile: "publicMedia",
+  assets,
+});
+```
+
+The value must exactly match a name in `storageProfiles`.
+
+```ts
+const storageProfiles = defineStorageProfiles({
+  publicMedia: awsS3(/* ... */),
+});
+```
+
+The matching default is:
+
+```ts
+defaultStorageProfile: "publicMedia"
+```
+
+The default is used when an upload asset does not choose another profile.
+
+```ts
+const assets = defineAssets(storageProfiles, {
+  coverImage: {
+    keyPrefix: "covers",
+  },
+});
+```
+
+Here, `coverImage` uses `publicMedia`.
+
+## Selecting a profile from an asset
+
+An asset can select a different profile with `storageProfile`.
+
+```ts
+const assets = defineAssets(storageProfiles, {
+  avatar: {
+    storageProfile: "optimizedImages",
+    keyPrefix: "avatars",
+  },
+
+  document: {
+    storageProfile: "privateDocuments",
+    keyPrefix: "documents",
+  },
+
+  coverImage: {
+    keyPrefix: "covers",
+  },
+});
+```
+
+| Asset        | Storage profile    |
+| ------------ | ------------------ |
+| `avatar`     | `optimizedImages`  |
+| `document`   | `privateDocuments` |
+| `coverImage` | Default profile    |
+
+This allows one uploader to send different upload types to different providers, buckets, or accounts.
+
+## How profile selection works
+
+When you call:
+
+```ts
+await uploader.prepareUpload("avatar", input);
+```
+
+Upload SDK:
+
+1. Finds the `avatar` asset.
+2. Uses its `storageProfile` when one is configured.
+3. Otherwise, uses `defaultStorageProfile`.
+4. Calls the provider configured by that profile.
+
+The client does not need to know which provider or bucket was selected.
+
+## Switching providers
+
+Assets refer to profile names rather than directly to provider factories.
+
+This means you can keep the same profile name and replace its provider.
+
+```ts
+const storageProfiles = defineStorageProfiles({
+  userUploads: awsS3({
+    // AWS configuration
+  }),
+});
+```
+
+Later, it could become:
+
+```ts
+const storageProfiles = defineStorageProfiles({
+  userUploads: imageKit({
+    // ImageKit configuration
+  }),
+});
+```
+
+Assets that use `userUploads` do not need to change.
+
+```ts
+const assets = defineAssets(storageProfiles, {
+  avatar: {
+    storageProfile: "userUploads",
+    keyPrefix: "avatars",
+  },
+});
+```
+
+The provider-specific configuration changes, but the asset and upload flow can stay the same.
+
+## Type-safe names
+
+`defineStorageProfiles()` preserves the profile names you define.
+
+```ts
+const storageProfiles = defineStorageProfiles({
+  userUploads: awsS3(/* ... */),
+  optimizedImages: imageKit(/* ... */),
+});
+```
+
+TypeScript can then check profile references:
+
+```ts
+const assets = defineAssets(storageProfiles, {
+  avatar: {
+    storageProfile: "optimizedImages",
+    keyPrefix: "avatars",
+  },
+});
+```
+
+A missing profile name should produce a TypeScript error:
+
+```ts
+const assets = defineAssets(storageProfiles, {
+  avatar: {
+    storageProfile: "missingProfile",
+    keyPrefix: "avatars",
+  },
+});
+```
+
+The same applies to `defaultStorageProfile`.
+
+## Keep profiles on the server
+
+Storage profiles usually contain private credentials.
+
+Keep them in server-only files:
+
+```ts
+// server/upload.ts
+```
+
+Do not import credential-bearing configuration into browser code.
+
+The client receives short-lived signed upload instructions, not your provider credentials.
+
+<Warning>
+Do not let the client freely choose a storage profile. Your server should choose an authorized upload asset, and the asset should determine the profile.
+</Warning>
+
+## Profile names are not security boundaries
+
+A profile name only organizes configuration.
+
+Actual isolation depends on:
+
+* Provider permissions
+* Separate credentials
+* Bucket or account policies
+* Application authentication
+* Application authorization
+
+Use limited provider permissions when different destinations require real separation.
+
+## Common mistakes
+
+### Using the provider name instead of the profile name
+
+Given:
+
+```ts
+const storageProfiles = defineStorageProfiles({
+  userUploads: awsS3(/* ... */),
+});
+```
+
+this is incorrect:
+
+```ts
+defaultStorageProfile: "s3"
+```
+
+The correct value is:
+
+```ts
+defaultStorageProfile: "userUploads"
+```
+
+### Putting provider settings inside an asset
+
+Provider configuration belongs in `storageProfiles`.
+
+```ts
+const storageProfiles = defineStorageProfiles({
+  userUploads: awsS3({
+    // Bucket, region, and credentials
+  }),
+});
+```
+
+Assets only refer to the profile name:
+
+```ts
+avatar: {
+  storageProfile: "userUploads",
+  keyPrefix: "avatars",
+}
+```
+
+## Next steps
+
+* [Upload Assets:](/docs/core-concepts/upload-assets)
+  Define the rules and destination for each upload type.
+
+* [AWS S3:](/docs/providers/aws-s3)
+  Configure an AWS S3 storage profile.
+
+* [ImageKit:](/docs/providers/imagekit)
+  Configure an ImageKit storage profile.

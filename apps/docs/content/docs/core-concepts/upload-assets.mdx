@@ -1,3 +1,458 @@
 ---
 title: Upload Assets
+description: Define reusable rules and destinations for each type of upload.
 ---
+
+An upload asset is a named configuration for a type of upload.
+
+It defines:
+
+- Where the upload should go
+- How the storage key should be organized
+- Which reported file types are accepted
+- The maximum reported file size
+- How long the prepared upload remains valid
+- Metadata included with the upload
+
+```ts
+const assets = defineAssets(storageProfiles, {
+  avatar: {
+    keyPrefix: "avatars",
+  },
+
+  document: {
+    keyPrefix: "documents",
+  },
+});
+```
+
+The asset name is passed to `prepareUpload()`:
+
+```ts
+await uploader.prepareUpload("avatar", {
+  filename: "profile.png",
+  contentType: "image/png",
+  size: 120_000,
+});
+```
+
+## Asset names
+
+Asset names are chosen by your application.
+
+Use names that describe the upload's purpose:
+
+```ts
+const assets = defineAssets(storageProfiles, {
+  avatar: {
+    keyPrefix: "avatars",
+  },
+
+  resume: {
+    keyPrefix: "resumes",
+  },
+
+  productImage: {
+    keyPrefix: "products/images",
+  },
+});
+```
+
+This keeps server code easy to understand:
+
+```ts
+await uploader.prepareUpload("productImage", input);
+```
+
+## Complete example
+
+```ts
+const assets = defineAssets(storageProfiles, {
+  avatar: {
+    storageProfile: "optimizedImages",
+
+    keyPrefix: "users/avatars",
+
+    accept: {
+      mimeTypes: ["image/png", "image/jpeg"],
+      extensions: [".png", ".jpg", ".jpeg"],
+    },
+
+    limits: {
+      maxFileSize: {
+        value: 2,
+        unit: "MB",
+      },
+    },
+
+    expiresIn: {
+      value: 5,
+      unit: "minutes",
+    },
+
+    metadata: {
+      purpose: "avatar",
+      temporary: true,
+    },
+  },
+});
+```
+
+## Asset properties
+
+| Property             | Purpose                                     |
+| -------------------- | ------------------------------------------- |
+| `storageProfile`     | Selects the storage profile                 |
+| `keyPrefix`          | Sets the path before the generated filename |
+| `accept.mimeTypes`   | Allows declared MIME types                  |
+| `accept.extensions`  | Allows filename extensions                  |
+| `limits.maxFileSize` | Sets the maximum reported file size         |
+| `expiresIn`          | Sets how long the prepared upload is valid  |
+| `metadata`           | Adds static provider metadata               |
+
+## `storageProfile`
+
+`storageProfile` selects the named provider configuration used by the asset.
+
+```ts
+avatar: {
+  storageProfile: "optimizedImages",
+  keyPrefix: "avatars",
+}
+```
+
+The name must exist in `storageProfiles`.
+
+```ts
+const storageProfiles = defineStorageProfiles({
+  optimizedImages: imageKit(/* ... */),
+});
+```
+
+When `storageProfile` is omitted, the asset uses the uploader's default profile.
+
+```ts
+attachment: {
+  keyPrefix: "attachments",
+}
+```
+
+See [Storage Profiles](/docs/core-concepts/storage-profiles) for profile selection and multiple destinations.
+
+## `keyPrefix`
+
+`keyPrefix` controls the path before the generated filename.
+
+```ts
+avatar: {
+  keyPrefix: "users/avatars",
+}
+```
+
+A generated key may look like:
+
+```text
+users/avatars/profile-550e8400-e29b-41d4-a716-446655440000.png
+```
+
+Use prefixes that describe how files are organized:
+
+```ts
+avatar: {
+  keyPrefix: "users/avatars",
+}
+
+invoice: {
+  keyPrefix: "billing/invoices",
+}
+
+productImage: {
+  keyPrefix: "catalog/products/images",
+}
+```
+
+Upload SDK sanitizes the prefix before using it.
+
+<Warning>
+  The prefix should come from trusted server configuration. Do not let the
+  client freely choose storage paths.
+</Warning>
+
+## `accept.mimeTypes`
+
+`accept.mimeTypes` defines which declared content types are allowed.
+
+```ts
+accept: {
+  mimeTypes: ["image/png", "image/jpeg"],
+}
+```
+
+A MIME wildcard can allow a whole group:
+
+```ts
+accept: {
+  mimeTypes: ["image/*"],
+}
+```
+
+The SDK checks the value reported by the client.
+
+It does not inspect the file bytes to confirm the actual type.
+
+## `accept.extensions`
+
+`accept.extensions` defines which filename extensions are allowed.
+
+```ts
+accept: {
+  extensions: [".png", ".jpg", ".jpeg"],
+}
+```
+
+The SDK extracts the extension from the reported filename.
+
+```ts
+{
+  filename: "profile.png",
+}
+```
+
+A filename such as `profile.exe` is rejected when `.exe` is not allowed.
+
+The declared content type does not override the extension rule.
+
+## Using MIME types and extensions together
+
+You can require both values to be allowed:
+
+```ts
+accept: {
+  mimeTypes: ["image/png", "image/jpeg"],
+  extensions: [".png", ".jpg", ".jpeg"],
+}
+```
+
+| Filename     | Declared content type | Result   |
+| ------------ | --------------------- | -------- |
+| `avatar.png` | `image/png`           | Accepted |
+| `avatar.exe` | `image/png`           | Rejected |
+| `avatar.png` | `application/pdf`     | Rejected |
+
+These checks use client-reported information. They do not prove what the file actually contains.
+
+See [Upload Safety](/docs/getting-started/upload-safety) for the full trust model.
+
+## `limits.maxFileSize`
+
+`limits.maxFileSize` sets the largest reported file size that the asset accepts.
+
+```ts
+limits: {
+  maxFileSize: {
+    value: 2,
+    unit: "MB",
+  },
+}
+```
+
+Supported units are:
+
+```ts
+"KB" | "MB" | "GB" | "TB"
+```
+
+When `prepareUpload()` is called, the reported `size` is compared with this limit.
+
+```ts
+await uploader.prepareUpload("avatar", {
+  filename: "profile.png",
+  contentType: "image/png",
+  size: 120_000,
+});
+```
+
+If the reported size is too large, the request is rejected before signing.
+
+Providers that support upload-size conditions can also include the resolved limit in the signed upload.
+
+### `maxFiles` and `concurrency`
+
+The asset type currently includes `maxFiles` and `concurrency`, but `prepareUpload()` does not enforce them.
+
+Do not rely on these fields to control batch size or simultaneous uploads.
+
+Handle those limits in your application.
+
+## `expiresIn`
+
+`expiresIn` controls how long the prepared upload remains valid.
+
+```ts
+expiresIn: {
+  value: 5,
+  unit: "minutes",
+}
+```
+
+Supported units are:
+
+```ts
+"seconds" | "minutes" | "hours";
+```
+
+Upload SDK converts the duration and passes it to the selected provider.
+
+Provider-specific minimum and maximum values may differ.
+
+```ts
+expiresIn: {
+  value: 30,
+  unit: "seconds",
+}
+```
+
+```ts
+expiresIn: {
+  value: 10,
+  unit: "minutes",
+}
+```
+
+Once the target expires, the client must request a new prepared upload.
+
+## `metadata`
+
+`metadata` adds static information to the prepared upload.
+
+```ts
+metadata: {
+  purpose: "avatar",
+  temporary: true,
+  version: 1,
+}
+```
+
+Metadata values can be strings, numbers, or booleans.
+
+Providers handle metadata differently:
+
+- AWS S3 uses object metadata.
+- ImageKit uses custom metadata.
+
+<Warning>
+  Do not put secrets, private credentials, or sensitive internal values in
+  metadata. Provider fields are returned to the client.
+</Warning>
+
+Metadata is defined on the asset. The current `prepareUpload()` input does not accept per-upload metadata overrides.
+
+## Sharing profiles between assets
+
+Several assets can use the same profile while keeping different paths and rules.
+
+```ts
+const assets = defineAssets(storageProfiles, {
+  avatar: {
+    keyPrefix: "avatars",
+    accept: {
+      mimeTypes: ["image/png", "image/jpeg"],
+      extensions: [".png", ".jpg", ".jpeg"],
+    },
+  },
+
+  document: {
+    keyPrefix: "documents",
+    accept: {
+      mimeTypes: ["application/pdf"],
+      extensions: [".pdf"],
+    },
+  },
+
+  attachment: {
+    keyPrefix: "attachments",
+  },
+});
+```
+
+When these assets use the same default profile, they share provider configuration without sharing upload rules.
+
+## Routing assets to different profiles
+
+Assets can also use different storage destinations:
+
+```ts
+const assets = defineAssets(storageProfiles, {
+  avatar: {
+    storageProfile: "optimizedImages",
+    keyPrefix: "avatars",
+  },
+
+  legalDocument: {
+    storageProfile: "privateDocuments",
+    keyPrefix: "legal",
+  },
+});
+```
+
+The selected asset decides where the upload goes.
+
+The client upload flow remains the same.
+
+## Choosing assets safely
+
+Your server should choose the asset after authenticating and authorizing the request.
+
+```ts
+await uploader.prepareUpload("avatar", input);
+```
+
+Avoid passing an unrestricted client value directly to `prepareUpload()`:
+
+```ts
+await uploader.prepareUpload(body.assetName, input);
+```
+
+Different assets may provide access to different profiles, size limits, expiration times, or storage paths.
+
+Only allow assets that the current user is authorized to use.
+
+## Type-safe asset names
+
+Asset names are preserved by TypeScript.
+
+```ts
+const assets = defineAssets(storageProfiles, {
+  avatar: {
+    keyPrefix: "avatars",
+  },
+
+  document: {
+    keyPrefix: "documents",
+  },
+});
+```
+
+Valid names can be passed to the uploader:
+
+```ts
+await uploader.prepareUpload("avatar", input);
+await uploader.prepareUpload("document", input);
+```
+
+An unknown name should produce a TypeScript error:
+
+```ts
+await uploader.prepareUpload("missingAsset", input);
+```
+
+## Next steps
+
+- [Prepared Uploads:](/docs/core-concepts/prepared-uploads)
+  Understand the signed result created from an asset.
+
+- [Upload Safety:](/docs/getting-started/upload-safety)
+  Learn what the SDK checks before provider signing.
+
+- [Validation and Errors:](/docs/guides/validation-and-errors)
+  Handle rejected input and SDK errors.

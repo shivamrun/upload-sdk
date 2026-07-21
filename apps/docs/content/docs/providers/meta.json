@@ -1,4 +1,4 @@
 {
   "title": "Providers",
-  "pages": ["aws-s3", "imagekit", "custom-providers"]
+  "pages": ["aws-s3", "imagekit"]
 }
