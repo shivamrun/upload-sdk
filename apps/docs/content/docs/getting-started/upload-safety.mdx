@@ -1,0 +1,187 @@
+---
+title: Upload Safety
+description: Understand what Upload SDK checks before creating a signed upload target.
+---
+
+Upload SDK treats all file information reported by the client as untrusted.
+
+During `prepareUpload()`, the SDK receives information about a file:
+
+```ts
+{
+  filename: file.name,
+  contentType: file.type,
+  size: file.size,
+}
+```
+
+It checks that information against the rules configured for the selected upload asset.
+
+<Warning>
+Upload SDK does not receive, read, or inspect the actual file during `prepareUpload()`.
+</Warning>
+
+## What is checked
+
+An asset can define accepted filename extensions, declared MIME types, and a maximum reported file size:
+
+```ts
+const assets = defineAssets(storageProfiles, {
+  avatar: {
+    keyPrefix: "avatars",
+    accept: {
+      mimeTypes: ["image/png", "image/jpeg"],
+      extensions: [".png", ".jpg", ".jpeg"],
+    },
+    limits: {
+      maxFileSize: {
+        value: 2,
+        unit: "MB",
+      },
+    },
+  },
+});
+```
+
+The SDK compares each client-reported value with the matching asset rule:
+
+| Client-reported value | Asset rule |
+| --- | --- |
+| Extension from `filename` | `accept.extensions` |
+| `contentType` | `accept.mimeTypes` |
+| `size` | `limits.maxFileSize` |
+
+For this asset:
+
+```ts
+{
+  filename: "profile.png",
+  contentType: "image/png",
+  size: 500_000,
+}
+```
+
+is accepted.
+
+These examples are rejected:
+
+```ts
+// Extension is not allowed
+{
+  filename: "profile.exe",
+  contentType: "image/png",
+  size: 500_000,
+}
+```
+
+```ts
+// Declared content type is not allowed
+{
+  filename: "profile.png",
+  contentType: "application/pdf",
+  size: 500_000,
+}
+```
+
+```ts
+// Declared size is too large
+{
+  filename: "profile.png",
+  contentType: "image/png",
+  size: 4_000_000,
+}
+```
+
+Invalid information is rejected before the provider creates upload credentials.
+
+## Filename and key safety
+
+The raw client filename is not used directly as the final storage key.
+
+Upload SDK:
+
+1. Parses and sanitizes the filename.
+2. Extracts and validates its extension.
+3. Sanitizes the asset's configured key prefix.
+4. Adds a random UUID to the filename.
+5. Builds the final storage key.
+
+For example:
+
+```yaml
+Client filename:
+My Profile Photo.PNG
+
+Generated key:
+avatars/my-profile-photo-550e8400-e29b-41d4-a716-446655440000.png
+```
+
+This prevents the raw filename from controlling the final path and makes accidental key collisions extremely unlikely.
+
+<Note>
+UUID-based keys are collision-resistant, not mathematically collision-proof.
+</Note>
+
+The key prefix should come from trusted server configuration:
+
+```ts
+keyPrefix: "users/avatars"
+```
+
+Do not let the client freely choose storage paths, buckets, or profiles.
+
+## What the provider can enforce
+
+After validation, the selected provider creates a signed policy or token.
+
+Depending on the provider, it can enforce supported constraints such as:
+
+- The generated storage key
+- The declared content type
+- The uploaded body size
+- The expiration time
+- Metadata
+- Provider-specific MIME or overwrite rules
+
+The client must submit the returned signed fields without changing them.
+
+Provider-specific behavior is covered in the [AWS S3](/docs/providers/aws-s3) and [ImageKit](/docs/providers/imagekit) guides.
+
+## What is not verified
+
+Upload SDK cannot confirm:
+
+- That a `.png` file is really a PNG
+- That the file bytes match the declared content type
+- That the file is safe to open
+- That the file contains no malware
+- That the upload completed successfully
+
+Client-reported information can be incorrect or intentionally misleading.
+
+When stronger guarantees are required, inspect the stored object after upload. Your application might check its actual type, read its file signature, decode it, scan it, or remove it when validation fails.
+
+## Your application's responsibilities
+
+Your application should:
+
+- Authenticate the user
+- Authorize the selected upload asset
+- Rate-limit upload preparation when needed
+- Protect provider credentials
+- Verify uploaded objects when content-level checks are required
+- Save only trusted upload records
+- Clean up invalid or abandoned objects
+
+A prepared upload is a short-lived permission to upload to your provider. Create it only after the request has been authorized.
+
+## Next steps
+
+* [How Uploads Work:](/docs/getting-started/how-uploads-work)
+  See where validation and signing happen in the full upload lifecycle.
+
+* [Upload Assets:](/docs/core-concepts/upload-assets)
+  Define reusable rules for each type of upload.
+
+* [Validation and Errors:](/docs/guides/validation-and-errors)
+  Handle rejected input and SDK errors in your application.

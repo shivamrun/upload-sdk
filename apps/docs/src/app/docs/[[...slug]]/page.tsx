@@ -28,7 +28,7 @@ export default async function Page(props: PageProps<"/docs/[[...slug]]">) {
       footer={{ enabled: false }}
     >
       <DocsTitle>{page.data.title}</DocsTitle>
-      <DocsDescription className="mb-0">
+      <DocsDescription className="mb-0 text-base">
         {page.data.description}
       </DocsDescription>
       <div className="flex flex-row gap-2 items-center border-b pb-6">

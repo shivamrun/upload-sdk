@@ -1,0 +1,141 @@
+---
+title: How Uploads Work
+description: Understand how the client, your server, Upload SDK, and the provider work together.
+---
+
+Upload SDK uses two requests:
+
+1. The client asks your server for a prepared upload.
+2. The client sends the file directly to the storage provider.
+
+The file does not pass through your application server.
+
+## 1. The client reports file information
+
+The client sends the selected file's name, declared content type, and size:
+
+```ts
+{
+  filename: file.name,
+  contentType: file.type,
+  size: file.size,
+}
+```
+
+This request contains information about the file, not the file itself.
+
+## 2. Your server authorizes the upload
+
+Your server authenticates the user, decides whether the upload is allowed, and chooses the asset to use.
+
+```ts
+const preparedUpload = await uploader.prepareUpload("avatar", {
+  filename: input.filename,
+  contentType: input.contentType,
+  size: input.size,
+});
+```
+
+Upload SDK does not handle authentication or authorization.
+
+## 3. Upload SDK prepares the target
+
+Upload SDK:
+
+1. Resolves the selected upload asset.
+2. Resolves its storage profile.
+3. Checks the client-reported information against the asset rules.
+4. Sanitizes the filename and configured key prefix.
+5. Generates a collision-resistant storage key.
+6. Asks the selected provider to sign the upload.
+
+<Warning>
+  The SDK checks reported information. It does not inspect the actual file
+  contents.
+</Warning>
+
+The complete validation model is explained in [Upload Safety](/docs/getting-started/upload-safety).
+
+## 4. The provider signs the upload
+
+The provider creates a short-lived signed policy or token.
+
+Supported constraints can include the generated key, declared content type, maximum upload size, expiration, metadata, and provider-specific checks.
+
+Provider credentials remain on your server.
+
+## 5. Your server returns the result
+
+`prepareUpload()` returns a consistent multipart upload target:
+
+```ts
+{
+  strategy: "multipart",
+  method: "POST",
+  url: "https://provider.example.com/upload",
+  headers: {},
+  fields: {
+    // Provider-specific signed fields
+  },
+  key: "avatars/profile-550e8400-e29b-41d4-a716-446655440000.png",
+  expiresAt: "2026-07-21T12:00:00.000Z"
+}
+```
+
+The response shape stays the same even though the signed fields differ between providers.
+
+## 6. The client uploads directly
+
+The client adds the returned fields and the file to `FormData`, then sends it to the returned URL.
+
+```ts
+const formData = new FormData();
+
+for (const [name, value] of Object.entries(preparedUpload.fields)) {
+  formData.append(name, value);
+}
+
+formData.append("file", file);
+
+await fetch(preparedUpload.url, {
+  method: preparedUpload.method,
+  headers: preparedUpload.headers,
+  body: formData,
+});
+```
+
+<Warning>
+  Do not manually set the multipart `Content-Type` header. The browser adds the
+  required boundary automatically.
+</Warning>
+
+A complete working implementation is available in the [Quick Start](/docs/getting-started/quick-start).
+
+## What stays the same across providers
+
+The application flow remains the same:
+
+1. Define storage profiles.
+2. Define upload assets.
+3. Create an uploader.
+4. Call `prepareUpload()`.
+5. Submit the returned fields and file.
+
+To change providers, replace the provider inside a storage profile. The profile can keep the same name, allowing the rest of the configuration to remain unchanged.
+
+## After the upload
+
+Upload SDK does not confirm completion or inspect the stored file.
+
+Your application may still need to confirm that the object exists, inspect its contents, save the generated key, associate it with a record, or delete an invalid upload.
+
+## Next steps
+
+- [Quick Start:](/docs/getting-started/quick-start)
+  Build the complete server and browser upload flow.
+
+- [Prepared Uploads:](/docs/core-concepts/prepared-uploads)
+  Understand every field returned by `prepareUpload()`.
+
+- [Browser Uploads:](/docs/guides/browser-uploads)
+  Handle direct uploads in client-side code.

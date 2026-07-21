@@ -1,0 +1,20 @@
+{
+  "title": "Upload SDK",
+  "pages": [
+    "---Getting Started---",
+    "index",
+    "getting-started/quick-start",
+    "getting-started/upload-safety",
+    "getting-started/how-uploads-work",
+    "---Core Concepts---",
+    "...core-concepts",
+    "---Providers---",
+    "...providers",
+    "---Guides---",
+    "...guides",
+    "---API Reference---",
+    "...api-reference",
+    "---Resources---",
+    "...resources"
+  ]
+}

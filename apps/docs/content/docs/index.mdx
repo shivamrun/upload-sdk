@@ -1,13 +1,110 @@
 ---
-title: Hello World
-description: Your first document
+title: Overview
+description: Validate client-provided file information and prepare direct uploads from your server.
 ---
 
-Welcome to the docs! You can start writing documents in `/content/docs`.
+`@marinedotsh/upload-sdk` is a server-side TypeScript SDK for preparing direct-to-provider file uploads.
 
-## What is Next?
+The client reports basic information about a selected file:
 
-<Cards>
-  <Card title="Learn more about Next.js" href="https://nextjs.org/docs" />
-  <Card title="Learn more about Fumadocs" href="https://fumadocs.dev" />
-</Cards>
+```ts
+{
+  filename: "profile.png",
+  contentType: "image/png",
+  size: 120_000,
+}
+```
+
+Upload SDK checks that information against the rules configured for a named upload asset. When the information is accepted, it creates a safe storage key and returns a short-lived signed upload target.
+
+```ts
+const upload = await uploader.prepareUpload("avatar", {
+  filename: "profile.png",
+  contentType: "image/png",
+  size: 120_000,
+});
+```
+
+The client then uploads the file directly to the selected storage provider. The file does not pass through your application server.
+
+## What Upload SDK handles
+
+Upload SDK gives you one consistent way to:
+
+- Configure storage providers
+- Define reusable upload assets
+- Check client-reported file information against asset rules
+- Sanitize filenames and key prefixes
+- Generate collision-resistant storage keys
+- Create short-lived multipart upload targets
+- Work with different providers through the same upload flow
+- Handle failures with consistent SDK errors
+
+## Upload assets
+
+An upload asset is a named set of rules for a type of upload.
+
+For example, an `avatar` asset can allow specific filename extensions, declared MIME types, and a maximum reported file size.
+
+When you call:
+
+```ts
+uploader.prepareUpload("avatar", input);
+```
+
+the SDK checks `input` against the rules for `avatar` before asking the provider to sign the upload.
+
+<Warning>
+  Upload SDK checks information reported by the client. It does not read the
+  file or verify its actual contents.
+</Warning>
+
+Learn more about these checks in [Upload Safety](/docs/getting-started/upload-safety).
+
+## Safe storage keys
+
+The original client filename is not used directly as the final storage key.
+
+Upload SDK sanitizes the filename, preserves the validated extension, adds a random UUID, and combines it with the asset's sanitized key prefix.
+
+A filename such as:
+
+```yaml
+My Profile Photo.PNG
+```
+
+may produce a key similar to:
+
+```yaml
+avatars/my-profile-photo-550e8400-e29b-41d4-a716-446655440000.png
+```
+
+This makes accidental key collisions extremely unlikely.
+
+## Supported providers
+
+Upload SDK currently includes:
+
+- AWS S3
+- ImageKit
+
+You can also implement a custom provider through the `StorageProvider` interface.
+
+## What your application handles
+
+Your application is still responsible for:
+
+- Authenticating users
+- Authorizing access to upload assets
+- Sending the file from the client
+- Confirming that an upload completed
+- Inspecting uploaded file contents when required
+- Saving trusted upload records
+- Cleaning up invalid or abandoned uploads
+
+Provider credentials must remain in server-side code.
+
+## Next steps
+
+- [Quick Start:](docs/getting-started/quick-start)
+  Follow the complete upload lifecycle.

@@ -1,0 +1,266 @@
+---
+title: Quick Start
+description: Configure Upload SDK and prepare your first direct upload.
+---
+
+This guide uses AWS S3, but the same upload flow works with every supported provider.
+
+To use ImageKit or a custom provider, replace the provider inside the storage profile. Your asset rules, `prepareUpload()` call, and browser upload flow can remain the same.
+
+## Install
+
+```bash
+pnpm add @marinedotsh/upload-sdk
+```
+
+## Add your environment variables
+
+```bash
+AWS_BUCKET=
+AWS_REGION=
+AWS_ACCESS_KEY_ID=
+AWS_SECRET_ACCESS_KEY=
+```
+
+<Warning>
+  Keep provider credentials on the server. Never expose them through browser
+  code or public environment variables.
+</Warning>
+
+## Create the upload configuration
+
+Create a server-only file:
+
+```ts
+// server/upload.ts
+
+import {
+  awsS3,
+  createUploader,
+  defineAssets,
+  defineStorageProfiles,
+} from "@marinedotsh/upload-sdk";
+
+const storageProfiles = defineStorageProfiles({
+  userUploads: awsS3({
+    bucket: process.env.AWS_BUCKET!,
+    region: process.env.AWS_REGION!,
+    credentials: {
+      accessKeyId: process.env.AWS_ACCESS_KEY_ID!,
+      secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY!,
+    },
+  }),
+});
+
+const assets = defineAssets(storageProfiles, {
+  avatar: {
+    keyPrefix: "avatars",
+    accept: {
+      mimeTypes: ["image/png", "image/jpeg"],
+      extensions: [".png", ".jpg", ".jpeg"],
+    },
+    limits: {
+      maxFileSize: {
+        value: 2,
+        unit: "MB",
+      },
+    },
+    expiresIn: {
+      value: 5,
+      unit: "minutes",
+    },
+  },
+});
+
+export const uploader = createUploader({
+  storageProfiles,
+  defaultStorageProfile: "userUploads",
+  assets,
+});
+```
+
+### Name storage profiles for your application
+
+`userUploads` is a name chosen by your application. It does not need to be called `s3` or `aws`.
+
+You can use names such as:
+
+```ts
+const storageProfiles = defineStorageProfiles({
+  avatarsBucket: awsS3(/* ... */),
+  documentsFromAltAccount: awsS3(/* ... */),
+  optimizedImages: imageKit(/* ... */),
+});
+```
+
+Named profiles make it easier to organize multiple buckets, accounts, regions, credentials, and providers.
+
+The value passed to `defaultStorageProfile` must match one of those names exactly:
+
+```ts
+defaultStorageProfile: "userUploads";
+```
+
+An asset uses the default profile unless it selects another one with `storageProfile`.
+
+For a deeper explanation, see [Storage Profiles](/docs/core-concepts/storage-profiles).
+
+## Understand the asset rules
+
+The `avatar` asset checks client-reported information against these rules:
+
+- The filename extension must be `.png`, `.jpg`, or `.jpeg`.
+- The declared content type must be `image/png` or `image/jpeg`.
+- The declared size must not exceed 2 MB.
+- The prepared upload expires after 5 minutes.
+
+<Warning>
+  These checks use information reported by the client. Upload SDK does not
+  inspect the actual file contents.
+</Warning>
+
+See [Upload Safety](/docs/getting-started/upload-safety) for the full trust model.
+
+## Prepare an upload on the server
+
+After authenticating and authorizing the request, call `prepareUpload()`:
+
+```ts
+import { uploader } from "./upload";
+
+const preparedUpload = await uploader.prepareUpload("avatar", {
+  filename: "profile.png",
+  contentType: "image/png",
+  size: 120_000,
+});
+```
+
+The first argument selects the asset. The second argument contains the file information reported by the client.
+
+Before signing, Upload SDK checks the information against the `avatar` rules, sanitizes the filename and key prefix, and generates a collision-resistant storage key.
+
+A generated key may look like:
+
+```yaml
+avatars/profile-550e8400-e29b-41d4-a716-446655440000.png
+```
+
+Return `preparedUpload` to the client from your server endpoint.
+
+## Request the prepared upload
+
+In the browser, send the selected file's information to your endpoint:
+
+```ts
+import type { PrepareUploadOutput } from "@marinedotsh/upload-sdk";
+
+async function prepareAvatarUpload(file: File): Promise<PrepareUploadOutput> {
+  const response = await fetch("/api/uploads/avatar", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      filename: file.name,
+      contentType: file.type,
+      size: file.size,
+    }),
+  });
+
+  if (!response.ok) {
+    throw new Error("Could not prepare the upload.");
+  }
+
+  return response.json();
+}
+```
+
+## Upload directly to the provider
+
+Add every returned field to `FormData`, then append the file:
+
+```ts
+async function uploadToProvider(
+  file: File,
+  preparedUpload: PrepareUploadOutput,
+): Promise<void> {
+  const formData = new FormData();
+
+  for (const [name, value] of Object.entries(preparedUpload.fields)) {
+    formData.append(name, value);
+  }
+
+  formData.append("file", file);
+
+  const response = await fetch(preparedUpload.url, {
+    method: preparedUpload.method,
+    headers: preparedUpload.headers,
+    body: formData,
+  });
+
+  if (!response.ok) {
+    throw new Error("The file could not be uploaded.");
+  }
+}
+```
+
+<Warning>
+  Do not manually set the multipart `Content-Type` header. The browser adds the
+  required boundary automatically.
+</Warning>
+
+Combine both steps:
+
+```ts
+export async function uploadAvatar(file: File): Promise<string> {
+  const preparedUpload = await prepareAvatarUpload(file);
+
+  await uploadToProvider(file, preparedUpload);
+
+  return preparedUpload.key;
+}
+```
+
+The file is sent directly from the browser to the storage provider.
+
+## Switch providers
+
+Keep the profile name and replace its provider:
+
+```ts
+const storageProfiles = defineStorageProfiles({
+  userUploads: imageKit({
+    publicKey: process.env.IMAGEKIT_PUBLIC_KEY!,
+    privateKey: process.env.IMAGEKIT_PRIVATE_KEY!,
+  }),
+});
+```
+
+Because the profile is still named `userUploads`, the rest of the configuration can stay the same:
+
+```ts
+export const uploader = createUploader({
+  storageProfiles,
+  defaultStorageProfile: "userUploads",
+  assets,
+});
+```
+
+The provider-specific signed fields change, but the application flow does not.
+
+## After the upload
+
+Upload SDK prepares the upload target. It does not confirm completion or inspect the uploaded file.
+
+Your application may still need to verify the object, save its key, associate it with a record, or delete invalid uploads.
+
+## Next steps
+
+- [How Uploads Work:](/docs/getting-started/how-uploads-work)
+  Follow the complete upload lifecycle.
+
+- [Storage Profiles:](/docs/core-concepts/storage-profiles)
+  Organize multiple buckets, accounts, and providers.
+
+- [AWS S3:](/docs/providers/aws-s3)
+  Configure the S3 provider.
