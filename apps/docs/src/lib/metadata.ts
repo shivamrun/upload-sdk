@@ -34,6 +34,12 @@ function createSiteUrl() {
 
   try {
     const url = new URL(rawUrl);
+    const isLocalUrl = ["localhost", "127.0.0.1", "::1"].includes(url.hostname);
+
+    if (process.env.NODE_ENV === "production" && isLocalUrl) {
+      return new URL(fallbackSiteUrl);
+    }
+
     return new URL(url.origin);
   } catch {
     return new URL(fallbackSiteUrl);

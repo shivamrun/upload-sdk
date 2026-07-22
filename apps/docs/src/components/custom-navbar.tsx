@@ -78,9 +78,10 @@ function NavbarShell({
     <header
       {...props}
       className={cx(
-        "sticky top-0 z-40 h-16 border-b bg-fd-background/85 backdrop-blur-md",
+        "sticky top-0 z-40 border-b bg-fd-background/85 backdrop-blur-md",
+        variant === "home" && "h-16",
         variant === "docs" &&
-          "[grid-area:header] top-(--fd-docs-row-1) layout:[--fd-header-height:--spacing(14)]",
+          "h-14 md:hidden [grid-area:header] top-(--fd-docs-row-1) max-md:layout:[--fd-header-height:--spacing(14)]",
         className,
       )}
     >
