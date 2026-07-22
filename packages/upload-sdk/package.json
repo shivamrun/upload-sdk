@@ -11,13 +11,14 @@
     "signed-upload",
     "presigned-url"
   ],
-  "homepage": "https://github.com/marinedotsh/upload-sdk#readme",
+  "homepage": "https://upload-sdk.dev",
   "bugs": {
     "url": "https://github.com/marinedotsh/upload-sdk/issues"
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/marinedotsh/upload-sdk.git"
+    "url": "git+https://github.com/marinedotsh/upload-sdk.git",
+    "directory": "packages/upload-sdk"
   },
   "license": "MIT",
   "author": {

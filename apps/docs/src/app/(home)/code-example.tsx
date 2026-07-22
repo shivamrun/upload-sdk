@@ -57,12 +57,19 @@ export function UploadButton() {
         throw new Error("Unable to prepare upload");
       }
 
-      const target = await targetResponse.json();
+      const preparedUpload = await targetResponse.json();
+      const formData = new FormData();
 
-      const uploadResponse = await fetch(target.url, {
-        method: target.method,
-        headers: target.headers,
-        body: file,
+      for (const [name, value] of Object.entries(preparedUpload.fields)) {
+        formData.append(name, value as string);
+      }
+
+      formData.append("file", file);
+
+      const uploadResponse = await fetch(preparedUpload.url, {
+        method: preparedUpload.method,
+        headers: preparedUpload.headers,
+        body: formData,
       });
 
       if (!uploadResponse.ok) {
@@ -114,26 +121,34 @@ export async function POST(request: Request) {
   return Response.json(target);
 }`;
 
-const uploadConfigCode = `import { awsS3 } from "@upload-sdk/aws-s3";
-import { createUploader, defineAssets } from "upload-sdk";
+const uploadConfigCode = `import {
+  createUploader,
+  defineAssets,
+  defineStorageProfiles,
+} from "@marinedotsh/upload-sdk";
+import { awsS3 } from "@marinedotsh/upload-sdk/providers";
 
 import { env } from "@/env";
-import { s3 } from "@/lib/s3";
 
 // Storage
-const storageProfiles = {
+const storageProfiles = defineStorageProfiles({
   userUploads: awsS3({
-    client: s3,
-    bucket: env.AWS_S3_BUCKET,
+    bucket: env.AWS_BUCKET,
+    region: env.AWS_REGION,
+    credentials: {
+      accessKeyId: env.AWS_ACCESS_KEY_ID,
+      secretAccessKey: env.AWS_SECRET_ACCESS_KEY,
+    },
   }),
-};
+});
 
 // Asset rules
 const assets = defineAssets(storageProfiles, {
   avatar: {
-    storage: "userUploads",
+    keyPrefix: "avatars",
     accept: {
       mimeTypes: ["image/png", "image/jpeg"],
+      extensions: [".png", ".jpg", ".jpeg"],
     },
     limits: {
       maxFileSize: {
@@ -141,12 +156,17 @@ const assets = defineAssets(storageProfiles, {
         unit: "MB",
       },
     },
+    expiresIn: {
+      value: 5,
+      unit: "minutes",
+    },
   },
 });
 
 // Uploader
 export const uploader = createUploader({
   storageProfiles,
+  defaultStorageProfile: "userUploads",
   assets,
 });`;
 
