@@ -27,6 +27,6 @@ aside#nd-sidebar a[data-active="true"] {
 
 @layer components {
   aside#nd-sidebar a {
-    @apply py-1.5!
+    @apply !py-1.5;
   }
 }
