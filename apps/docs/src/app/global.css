@@ -1,6 +1,6 @@
-@import 'tailwindcss';
-@import 'fumadocs-ui/css/black.css';
-@import 'fumadocs-ui/css/preset.css';
+@import "tailwindcss";
+@import "fumadocs-ui/css/black.css";
+@import "fumadocs-ui/css/preset.css";
 
 html {
   scrollbar-gutter: stable;
@@ -13,4 +13,20 @@ html > body[data-scroll-locked] {
 
 p.inline-flex.items-center.gap-2.mb-1.px-2.mt-6 {
   font-size: 12px;
+}
+
+aside#nd-sidebar {
+  background-color: #050505;
+}
+
+aside#nd-sidebar a[data-active="true"] {
+  color: #0087f5;
+  background-color: #04172b;
+  font-weight: 500;
+}
+
+@layer components {
+  aside#nd-sidebar a {
+    @apply py-1.5!
+  }
 }

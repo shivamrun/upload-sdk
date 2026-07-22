@@ -14,9 +14,9 @@ import {
   Route,
   Server,
   ShieldCheck,
-  Sparkles,
   Upload,
 } from "lucide-react";
+import Image from "next/image";
 import Link from "next/link";
 
 const benefits = [
@@ -206,9 +206,20 @@ function Hero() {
 
       <div className="relative mx-auto grid min-h-[calc(100vh-4rem)] max-w-7xl items-center gap-14 px-6 py-20 lg:grid-cols-[1fr_0.9fr] lg:px-8 lg:py-24">
         <div className="max-w-3xl">
-          <div className="inline-flex items-center gap-2 rounded-full border bg-fd-background/80 px-3 py-1.5 text-sm text-fd-muted-foreground shadow-sm backdrop-blur">
-            <Sparkles className="size-3.5 text-fd-primary" aria-hidden="true" />
-            TypeScript-first upload infrastructure
+          <div className="inline-flex flex-wrap items-center gap-2 rounded-full border bg-fd-background/80 px-3 py-1.5 text-sm text-fd-muted-foreground shadow-sm backdrop-blur">
+            <Image
+              src="/upload-sdk.svg"
+              alt=""
+              width={16}
+              height={16}
+              aria-hidden="true"
+            />
+            <span className="font-medium text-fd-foreground">Upload SDK</span>
+            <span
+              className="hidden h-3 w-px bg-fd-border sm:block"
+              aria-hidden="true"
+            />
+            <span>TypeScript-first upload infrastructure</span>
           </div>
 
           <h1 className="mt-7 text-5xl font-semibold tracking-[-0.05em] text-balance sm:text-6xl lg:text-7xl">

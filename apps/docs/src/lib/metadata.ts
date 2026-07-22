@@ -62,6 +62,9 @@ export const metadata: Metadata = {
   publisher: "marinedotsh",
   applicationName: appName,
   category: "Developer tools",
+  icons: {
+    icon: "/upload-sdk.svg",
+  },
   metadataBase: siteUrl,
   alternates: {
     canonical: "/",
