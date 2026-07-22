@@ -1,4 +1,4 @@
-import { Inter } from "next/font/google";
+import { Geist, Inter, Open_Sans } from "next/font/google";
 import { Provider } from "@/components/provider";
 import "./global.css";
 import { Analytics } from "@vercel/analytics/next";
@@ -8,13 +8,22 @@ const inter = Inter({
   subsets: ["latin"],
 });
 
+const geist = Geist({
+  subsets: ["latin"],
+  variable: "--font-geist",
+});
+
 const isProduction = process.env.NODE_ENV === "production";
 
 export { metadata };
 
 export default function Layout({ children }: LayoutProps<"/">) {
   return (
-    <html lang="en" className={inter.className} suppressHydrationWarning>
+    <html
+      lang="en"
+      className={`${inter.className} ${geist.variable}`}
+      suppressHydrationWarning
+    >
       <body className="flex flex-col min-h-screen">
         <script
           type="application/ld+json"
