@@ -424,8 +424,10 @@ The error class used for expected SDK failures.
 
 ```ts
 class UploadSDKError extends Error {
+  readonly name: "UploadSDKError";
   readonly code: UploadSDKErrorCode;
   readonly statusCode: number;
+  readonly cause?: unknown;
   readonly details?: unknown;
 }
 ```
@@ -522,7 +524,7 @@ See [Validation and Errors](/docs/guides/validation-and-errors) for error-handli
 
 ## Next steps
 
-* [Types:](/docs/types)
+* [Types:](/docs/api-reference/types)
   View all exported TypeScript types.
 
 * [Validation and Errors:](/docs/guides/validation-and-errors)

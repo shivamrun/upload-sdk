@@ -242,6 +242,11 @@ expiresIn: {
 }
 ```
 
+When `expiresIn` is not configured, the provider uses 5 minutes.
+
+The resolved expiration must be an integer from 1 second through 604,800 seconds (7 days).
+Values outside that range are rejected while preparing the upload.
+
 After the signed policy expires, S3 rejects the upload.
 
 The client must request a new prepared upload instead of reusing the expired fields.

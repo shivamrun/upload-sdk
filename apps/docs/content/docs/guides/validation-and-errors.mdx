@@ -105,6 +105,7 @@ An SDK error can contain:
 | `code`       | A machine-readable error code                        |
 | `message`    | A readable explanation                               |
 | `statusCode` | A suggested HTTP status                              |
+| `cause`      | Optional original error for server-side debugging    |
 | `details`    | Optional extra information for server-side debugging |
 
 ## Error codes
@@ -158,8 +159,8 @@ Common reasons include:
 * An invalid `keyPrefix`
 * An invalid `expiresIn` value
 * An invalid file-size configuration
+* An invalid accepted MIME type or filename extension
 * An expiration outside the provider's supported range
-* Missing provider values required during signing
 
 This usually indicates a server-side configuration problem rather than a problem the user can fix.
 
@@ -179,11 +180,14 @@ This error means the provider could not create the signed upload target.
 
 Possible causes include:
 
-* Invalid provider credentials
 * Incorrect provider configuration
 * A signing failure
 * Missing runtime cryptography support
 * An unexpected provider implementation error
+
+The built-in providers sign upload instructions locally. They do not contact AWS S3 or ImageKit
+to verify credentials, account permissions, buckets, or provider keys during `prepareUpload()`.
+Incorrect credentials can therefore produce a prepared upload that the provider later rejects.
 
 Do not return internal error details or causes directly to the browser.
 

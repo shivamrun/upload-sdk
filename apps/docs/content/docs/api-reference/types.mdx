@@ -46,8 +46,8 @@ type AssetUploadConfig<
   };
 
   accept?: {
-    mimeTypes?: string[];
-    extensions?: string[];
+    mimeTypes?: readonly string[];
+    extensions?: readonly string[];
   };
 
   metadata?: UploadMetadata;
@@ -349,7 +349,8 @@ type ProviderPrepareUploadInput = {
   metadata?: UploadMetadata;
 
   accept?: {
-    mimeTypes?: string[];
+    mimeTypes?: readonly string[];
+    extensions?: readonly string[];
   };
 
   limits?: {
