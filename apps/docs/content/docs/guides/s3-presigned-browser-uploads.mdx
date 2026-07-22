@@ -1,0 +1,205 @@
+---
+title: S3 Presigned Browser Uploads
+description: Prepare AWS S3 presigned POST uploads with TypeScript validation, CORS, and browser FormData.
+---
+
+Upload SDK prepares AWS S3 presigned `POST` uploads for browser-based file uploads.
+
+The browser sends file information to your server. Your server validates that information, signs an S3 POST policy, and returns the fields the browser must submit directly to S3.
+
+## Why presigned POST
+
+A presigned POST upload lets the browser upload to S3 without receiving AWS credentials.
+
+The signed policy can constrain:
+
+* The generated object key
+* The declared content type
+* The maximum upload size
+* The expiration time
+* Object metadata
+
+Upload SDK creates these signed fields from a typed upload asset.
+
+## Configure S3
+
+Create an S3 storage profile on the server:
+
+```ts
+import {
+  createUploader,
+  defineAssets,
+  defineStorageProfiles,
+} from "@marinedotsh/upload-sdk";
+import { awsS3 } from "@marinedotsh/upload-sdk/providers";
+
+const storageProfiles = defineStorageProfiles({
+  uploads: awsS3({
+    bucket: process.env.AWS_BUCKET!,
+    region: process.env.AWS_REGION!,
+    credentials: {
+      accessKeyId: process.env.AWS_ACCESS_KEY_ID!,
+      secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY!,
+    },
+  }),
+});
+```
+
+Your AWS credentials must remain in server-side code or server-side environment variables.
+
+## Define an asset
+
+Use an asset to describe the upload policy your application allows:
+
+```ts
+const assets = defineAssets(storageProfiles, {
+  avatar: {
+    keyPrefix: "avatars",
+    accept: {
+      mimeTypes: ["image/png", "image/jpeg"],
+      extensions: [".png", ".jpg", ".jpeg"],
+    },
+    limits: {
+      maxFileSize: {
+        value: 2,
+        unit: "MB",
+      },
+    },
+    expiresIn: {
+      value: 5,
+      unit: "minutes",
+    },
+  },
+});
+
+export const uploader = createUploader({
+  storageProfiles,
+  defaultStorageProfile: "uploads",
+  assets,
+});
+```
+
+Before signing, Upload SDK checks the filename, content type, reported size, key prefix, and expiration settings.
+
+## Bucket CORS
+
+S3 must allow the browser origin that will submit the form:
+
+```json
+[
+  {
+    "AllowedOrigins": ["https://example.com"],
+    "AllowedMethods": ["POST"],
+    "AllowedHeaders": ["*"],
+    "MaxAgeSeconds": 3600
+  }
+]
+```
+
+For local development, include the local origin you use:
+
+```json
+[
+  {
+    "AllowedOrigins": ["http://localhost:3000", "https://example.com"],
+    "AllowedMethods": ["POST"],
+    "AllowedHeaders": ["*"],
+    "MaxAgeSeconds": 3600
+  }
+]
+```
+
+Avoid a wildcard production origin unless public cross-origin uploads are intentional.
+
+## Prepare the upload
+
+After authenticating and authorizing the request, call `prepareUpload()`:
+
+```ts
+const preparedUpload = await uploader.prepareUpload("avatar", {
+  filename: "profile.png",
+  contentType: "image/png",
+  size: 120_000,
+});
+```
+
+The S3 provider returns a multipart upload target:
+
+```ts
+{
+  strategy: "multipart",
+  method: "POST",
+  url: "https://example-bucket.s3.us-east-1.amazonaws.com",
+  headers: {},
+  fields: {
+    key: "avatars/profile-550e8400-e29b-41d4-a716-446655440000.png",
+    "Content-Type": "image/png",
+    "X-Amz-Algorithm": "AWS4-HMAC-SHA256",
+    "X-Amz-Credential": "...",
+    "X-Amz-Date": "...",
+    Policy: "...",
+    "X-Amz-Signature": "..."
+  },
+  key: "avatars/profile-550e8400-e29b-41d4-a716-446655440000.png",
+  expiresAt: "2026-07-21T12:00:00.000Z"
+}
+```
+
+The exact fields depend on your bucket, region, credentials, asset rules, and temporary credential state.
+
+## Upload from the browser
+
+Submit every returned field before the file:
+
+```ts
+const formData = new FormData();
+
+for (const [name, value] of Object.entries(preparedUpload.fields)) {
+  formData.append(name, value);
+}
+
+formData.append("file", file);
+
+const response = await fetch(preparedUpload.url, {
+  method: preparedUpload.method,
+  headers: preparedUpload.headers,
+  body: formData,
+});
+
+if (!response.ok) {
+  throw new Error("S3 rejected the upload.");
+}
+```
+
+Do not rename or edit signed fields. S3 can reject the upload if the submitted form no longer matches the policy.
+
+## Size and type constraints
+
+Upload SDK checks the size and content type reported by the browser before signing.
+
+For S3, the signed policy can also include a content-length condition so S3 rejects an uploaded body that exceeds the configured limit.
+
+<Warning>
+  A reported MIME type is not proof of file contents. Inspect the stored object
+  after upload when your application needs content-level trust.
+</Warning>
+
+## Common failure points
+
+* The bucket CORS policy does not allow your application origin.
+* The AWS identity cannot write to the selected bucket or prefix.
+* The configured region does not match the bucket region.
+* The browser changed or omitted a signed field.
+* The prepared upload expired before the browser submitted the form.
+* The uploaded body exceeds the signed size limit.
+
+## Next steps
+
+* [AWS S3:](/docs/providers/aws-s3)
+  Read the full provider reference.
+
+* [Next.js Direct Uploads:](/docs/guides/next-js-direct-uploads)
+  Put the same S3 flow behind a Next.js route handler.
+
+* [Direct Upload Architecture:](/docs/resources/direct-upload-architecture)
+  Compare direct uploads with server-proxied uploads.

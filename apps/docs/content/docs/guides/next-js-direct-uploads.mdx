@@ -1,0 +1,196 @@
+---
+title: Next.js Direct Uploads
+description: Prepare signed direct uploads in a Next.js route handler and send files from the browser with FormData.
+---
+
+This guide shows a Next.js App Router upload flow:
+
+1. A browser sends file information to a route handler.
+2. The route handler authenticates the request and calls Upload SDK.
+3. The browser sends the file directly to AWS S3 or ImageKit.
+
+Provider credentials stay on the server. The file itself does not pass through the Next.js route handler.
+
+## Server-only uploader
+
+Create the uploader in server-only code:
+
+```ts
+// src/server/upload.ts
+
+import {
+  createUploader,
+  defineAssets,
+  defineStorageProfiles,
+} from "@marinedotsh/upload-sdk";
+import { awsS3 } from "@marinedotsh/upload-sdk/providers";
+
+const storageProfiles = defineStorageProfiles({
+  uploads: awsS3({
+    bucket: process.env.AWS_BUCKET!,
+    region: process.env.AWS_REGION!,
+    credentials: {
+      accessKeyId: process.env.AWS_ACCESS_KEY_ID!,
+      secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY!,
+    },
+  }),
+});
+
+const assets = defineAssets(storageProfiles, {
+  avatar: {
+    keyPrefix: "avatars",
+    accept: {
+      mimeTypes: ["image/png", "image/jpeg"],
+      extensions: [".png", ".jpg", ".jpeg"],
+    },
+    limits: {
+      maxFileSize: {
+        value: 2,
+        unit: "MB",
+      },
+    },
+    expiresIn: {
+      value: 5,
+      unit: "minutes",
+    },
+  },
+});
+
+export const uploader = createUploader({
+  storageProfiles,
+  defaultStorageProfile: "uploads",
+  assets,
+});
+```
+
+Keep this file out of client components. It reads provider credentials and should only run on the server.
+
+## Route handler
+
+Create a route handler that accepts file information, not the file bytes:
+
+```ts
+// src/app/api/uploads/avatar/route.ts
+
+import { NextResponse } from "next/server";
+import { uploader } from "@/server/upload";
+
+export async function POST(request: Request) {
+  // Authenticate and authorize the request here.
+
+  const input = await request.json();
+
+  const preparedUpload = await uploader.prepareUpload("avatar", {
+    filename: input.filename,
+    contentType: input.contentType,
+    size: input.size,
+  });
+
+  return NextResponse.json(preparedUpload);
+}
+```
+
+Your application should decide which asset the user may upload to. Do not let the browser choose arbitrary assets, buckets, key prefixes, or storage profiles.
+
+<Warning>
+  The route handler validates file information reported by the client. Upload SDK
+  does not inspect the actual file contents.
+</Warning>
+
+## Browser request
+
+In a client component or browser utility, request the prepared upload:
+
+```ts
+import type { PrepareUploadOutput } from "@marinedotsh/upload-sdk";
+
+async function prepareAvatarUpload(file: File): Promise<PrepareUploadOutput> {
+  const response = await fetch("/api/uploads/avatar", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      filename: file.name,
+      contentType: file.type,
+      size: file.size,
+    }),
+  });
+
+  if (!response.ok) {
+    throw new Error("Could not prepare the upload.");
+  }
+
+  return response.json();
+}
+```
+
+The response contains the provider URL, signed fields, method, headers, generated storage key, and expiration time.
+
+## Send the file
+
+Use the prepared upload to build a multipart form:
+
+```ts
+async function uploadFile(
+  file: File,
+  preparedUpload: PrepareUploadOutput,
+): Promise<string> {
+  const formData = new FormData();
+
+  for (const [name, value] of Object.entries(preparedUpload.fields)) {
+    formData.append(name, value);
+  }
+
+  formData.append("file", file);
+
+  const response = await fetch(preparedUpload.url, {
+    method: preparedUpload.method,
+    headers: preparedUpload.headers,
+    body: formData,
+  });
+
+  if (!response.ok) {
+    throw new Error("The provider rejected the upload.");
+  }
+
+  return preparedUpload.key;
+}
+```
+
+Do not set the multipart `Content-Type` header manually. The browser adds the required boundary.
+
+## Complete client flow
+
+```ts
+export async function uploadAvatar(file: File): Promise<string> {
+  const preparedUpload = await prepareAvatarUpload(file);
+  return uploadFile(file, preparedUpload);
+}
+```
+
+The returned key is the intended storage key. It does not prove the provider accepted the upload until the direct upload request succeeds.
+
+## Next.js responsibilities
+
+Your Next.js application still owns:
+
+* Authentication and authorization
+* Choosing the upload asset
+* Rate limits and request limits
+* Saving trusted upload records
+* Confirming upload completion when required
+* Inspecting uploaded files when content trust matters
+
+Upload SDK prepares the signed target. It does not persist records or verify stored files.
+
+## Next steps
+
+* [Browser Uploads:](/docs/guides/browser-uploads)
+  Understand the provider-independent browser flow.
+
+* [S3 Presigned Browser Uploads:](/docs/guides/s3-presigned-browser-uploads)
+  Configure S3-specific CORS, policy, and upload behavior.
+
+* [Direct Upload Architecture:](/docs/resources/direct-upload-architecture)
+  Decide when direct uploads fit your application.

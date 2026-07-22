@@ -1,0 +1,194 @@
+---
+title: ImageKit Browser Uploads
+description: Prepare ImageKit signed browser uploads with server-side tokens, MIME checks, metadata, and FormData.
+---
+
+Upload SDK prepares signed ImageKit `POST` uploads for browser-based file uploads.
+
+The browser reports file information to your server. Your server validates that information, creates a short-lived ImageKit upload token, and returns the fields the browser sends directly to ImageKit.
+
+## Configure ImageKit
+
+Create an ImageKit storage profile on the server:
+
+```ts
+import {
+  createUploader,
+  defineAssets,
+  defineStorageProfiles,
+} from "@marinedotsh/upload-sdk";
+import { imageKit } from "@marinedotsh/upload-sdk/providers";
+
+const storageProfiles = defineStorageProfiles({
+  images: imageKit({
+    publicKey: process.env.IMAGEKIT_PUBLIC_KEY!,
+    privateKey: process.env.IMAGEKIT_PRIVATE_KEY!,
+  }),
+});
+```
+
+The private key must stay on the server. The public key is used as the signed token key ID, but the private key is used only for signing.
+
+## Define image upload rules
+
+Use an asset to describe what your application accepts:
+
+```ts
+const assets = defineAssets(storageProfiles, {
+  avatar: {
+    storageProfile: "images",
+    keyPrefix: "avatars",
+    accept: {
+      mimeTypes: ["image/png", "image/jpeg"],
+      extensions: [".png", ".jpg", ".jpeg"],
+    },
+    limits: {
+      maxFileSize: {
+        value: 2,
+        unit: "MB",
+      },
+    },
+    metadata: {
+      purpose: "avatar",
+    },
+    expiresIn: {
+      value: 5,
+      unit: "minutes",
+    },
+  },
+});
+
+export const uploader = createUploader({
+  storageProfiles,
+  defaultStorageProfile: "images",
+  assets,
+});
+```
+
+Upload SDK checks the file information before creating the ImageKit token.
+
+## Prepare the upload
+
+Call `prepareUpload()` from a server endpoint:
+
+```ts
+const preparedUpload = await uploader.prepareUpload("avatar", {
+  filename: "profile.png",
+  contentType: "image/png",
+  size: 120_000,
+});
+```
+
+An ImageKit prepared upload can include:
+
+```ts
+{
+  strategy: "multipart",
+  method: "POST",
+  url: "https://upload.imagekit.io/api/v2/files/upload",
+  headers: {},
+  fields: {
+    fileName:
+      "profile-550e8400-e29b-41d4-a716-446655440000.png",
+    folder: "/avatars",
+    useUniqueFileName: "false",
+    overwrite: "false",
+    checks: "mime-type and size checks",
+    customMetadata: "{\"purpose\":\"avatar\"}",
+    token: "signed-upload-token"
+  },
+  key: "avatars/profile-550e8400-e29b-41d4-a716-446655440000.png",
+  expiresAt: "2026-07-21T12:00:00.000Z"
+}
+```
+
+The token is short-lived. The browser should request a new prepared upload after expiration.
+
+## Upload from the browser
+
+Add every returned field to `FormData`, then append the file:
+
+```ts
+const formData = new FormData();
+
+for (const [name, value] of Object.entries(preparedUpload.fields)) {
+  formData.append(name, value);
+}
+
+formData.append("file", file);
+
+const response = await fetch(preparedUpload.url, {
+  method: preparedUpload.method,
+  headers: preparedUpload.headers,
+  body: formData,
+});
+
+if (!response.ok) {
+  throw new Error("ImageKit rejected the upload.");
+}
+```
+
+Do not change the returned token, folder, filename, checks, or metadata fields in browser code.
+
+## MIME checks
+
+When an asset defines `accept.mimeTypes`, the ImageKit provider can include matching MIME checks in the signed fields.
+
+Upload SDK first checks the content type reported by the browser. ImageKit then receives the signed check for the upload request.
+
+<Warning>
+  MIME checks do not prove the stored file contents. Use post-upload inspection
+  when your application needs to trust the actual file type.
+</Warning>
+
+## Metadata
+
+Asset metadata is returned to the browser as ImageKit `customMetadata`.
+
+Use metadata for non-sensitive provider metadata only:
+
+```ts
+metadata: {
+  purpose: "avatar",
+  source: "profile-settings",
+}
+```
+
+Do not put secrets, private IDs, or authorization decisions in metadata. Prepared upload fields are client-visible.
+
+Your ImageKit account must also allow the custom metadata fields you use.
+
+## Overwrite behavior
+
+Upload SDK generates a collision-resistant filename before signing.
+
+The ImageKit provider sends:
+
+```ts
+{
+  useUniqueFileName: "false",
+  overwrite: "false",
+}
+```
+
+This keeps the SDK-generated key stable and prevents ImageKit from replacing an existing file at the same path.
+
+## Common failure points
+
+* The private key is missing or incorrect.
+* The prepared upload expired before the browser submitted the form.
+* The browser changed a signed field.
+* ImageKit rejected a MIME or size check.
+* Custom metadata fields are not configured in ImageKit.
+* The application assumes the returned key proves upload completion.
+
+## Next steps
+
+* [ImageKit:](/docs/providers/imagekit)
+  Read the full provider reference.
+
+* [Browser Uploads:](/docs/guides/browser-uploads)
+  Review the provider-independent browser flow.
+
+* [Direct Upload Architecture:](/docs/resources/direct-upload-architecture)
+  Decide which responsibilities stay in your application.

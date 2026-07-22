@@ -5,8 +5,10 @@ const fallbackSiteUrl = "https://upload-sdk.dev";
 const repositoryUrl = `https://github.com/${gitConfig.user}/${gitConfig.repo}`;
 const npmPackageUrl = `https://www.npmjs.com/package/${packageName}`;
 
+export const siteTitle =
+  "Upload SDK - Typed Direct Uploads for S3 and ImageKit";
 export const siteDescription =
-  "Provider-agnostic TypeScript upload SDK for generating signed browser upload targets for S3 and ImageKit with strict validation, typed asset rules, and publish-ready provider helpers.";
+  "TypeScript SDK for signed direct uploads to AWS S3 and ImageKit with typed asset rules, strict validation, and server-side credentials.";
 
 export const siteKeywords = [
   "upload sdk",
@@ -31,13 +33,15 @@ function createSiteUrl() {
   const rawUrl = process.env.NEXT_PUBLIC_SITE_URL ?? fallbackSiteUrl;
 
   try {
-    return new URL(rawUrl);
+    const url = new URL(rawUrl);
+    return new URL(url.origin);
   } catch {
     return new URL(fallbackSiteUrl);
   }
 }
 
 export const siteUrl = createSiteUrl();
+export const siteBaseUrl = siteUrl.origin;
 export const ogImageUrl = new URL(`${docsImageRoute}/image.png`, siteUrl);
 
 export function toAbsoluteUrl(path: string) {
@@ -46,8 +50,7 @@ export function toAbsoluteUrl(path: string) {
 
 export const metadata: Metadata = {
   title: {
-    default:
-      "Upload SDK - Provider-Agnostic Signed Uploads for S3 and ImageKit",
+    default: siteTitle,
     template: `%s | ${appName}`,
   },
   description: siteDescription,
@@ -67,13 +70,12 @@ export const metadata: Metadata = {
   },
   metadataBase: siteUrl,
   alternates: {
-    canonical: "/",
+    canonical: siteBaseUrl,
   },
   openGraph: {
-    title: "Upload SDK - Provider-Agnostic Signed Uploads for S3 and ImageKit",
-    description:
-      "Generate signed direct-upload targets for S3 and ImageKit with strict validation, typed asset rules, and provider-safe upload constraints.",
-    url: siteUrl.toString(),
+    title: siteTitle,
+    description: siteDescription,
+    url: siteBaseUrl,
     siteName: appName,
     type: "website",
     locale: "en_US",
@@ -88,9 +90,8 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: "summary_large_image",
-    title: "Upload SDK - Provider-Agnostic Signed Uploads for S3 and ImageKit",
-    description:
-      "Typed upload configuration, strict validation, and signed direct-upload targets for S3 and ImageKit.",
+    title: siteTitle,
+    description: siteDescription,
     images: [ogImageUrl.toString()],
   },
   robots: {
@@ -115,10 +116,12 @@ export const structuredData = {
   "@graph": [
     {
       "@type": "WebSite",
+      "@id": `${siteBaseUrl}/#website`,
       name: appName,
       alternateName: "Provider-Agnostic Upload SDK",
-      url: siteUrl.toString(),
+      url: siteBaseUrl,
       description: siteDescription,
+      inLanguage: "en-US",
       publisher: {
         "@type": "Organization",
         name: "marinedotsh",
@@ -127,9 +130,10 @@ export const structuredData = {
     },
     {
       "@type": "SoftwareSourceCode",
+      "@id": `${siteBaseUrl}/#source-code`,
       name: appName,
       alternateName: "Provider-Agnostic Upload SDK",
-      url: siteUrl.toString(),
+      url: siteBaseUrl,
       codeRepository: repositoryUrl,
       sameAs: [repositoryUrl, npmPackageUrl],
       description: siteDescription,

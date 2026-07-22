@@ -1,0 +1,118 @@
+---
+title: Direct Upload Architecture
+description: Compare direct browser uploads with server-proxied uploads and understand what Upload SDK prepares.
+---
+
+Direct uploads let a browser send files to a storage provider without routing the file bytes through your application server.
+
+Upload SDK fits the preparation step. It validates client-reported file information, resolves a typed upload asset, and returns a short-lived provider upload target.
+
+## Direct upload flow
+
+A typical direct upload has two server-visible phases:
+
+1. The browser asks your application for a prepared upload.
+2. The browser sends the file directly to AWS S3 or ImageKit.
+
+Your server signs intent. The provider receives the file.
+
+```txt
+Browser -> Application server -> Upload SDK -> Provider signing fields
+Browser -> Storage provider
+```
+
+This keeps provider credentials on the server while avoiding a large file transfer through your application server.
+
+## When direct uploads fit
+
+Direct uploads are a good fit when:
+
+* Files can be uploaded directly to object storage or an asset provider
+* The application server should avoid handling large request bodies
+* The browser can submit multipart `FormData`
+* The provider can enforce enough constraints for the upload
+* The application can verify and persist the result after upload when needed
+
+Examples include avatars, document attachments, media drafts, generated exports, and user-submitted images.
+
+## When server-proxied uploads may fit better
+
+A server-proxied upload may be better when:
+
+* The server must inspect the file before storage
+* The application needs synchronous virus scanning before accepting the object
+* The provider does not support the required browser upload flow
+* The server must transform the file before it reaches storage
+* The upload policy depends on data that cannot be safely represented in signed provider fields
+
+Upload SDK does not replace these workflows. It is focused on preparing signed direct upload targets.
+
+## What Upload SDK prepares
+
+Upload SDK handles the shared preparation work:
+
+* Typed asset selection
+* Storage profile resolution
+* Filename and key-prefix sanitization
+* Reported MIME, extension, and size validation
+* Expiration validation
+* Provider-specific signed fields
+* Consistent `PrepareUploadOutput` shape
+
+The same application-facing flow works across AWS S3 and ImageKit, while each provider receives the fields it expects.
+
+## What your application still owns
+
+Your application remains responsible for:
+
+* Authentication and authorization
+* Deciding which asset a user may upload
+* Rate limits and abuse controls
+* Client-side upload progress
+* Completion checks
+* Database persistence
+* File inspection, moderation, or malware scanning
+* Cleanup of abandoned or invalid uploads
+
+A prepared upload is permission to attempt an upload. It is not proof that the file exists or is safe.
+
+## Provider tradeoffs
+
+AWS S3 and ImageKit use the same SDK preparation flow, but their provider behavior differs.
+
+| Concern | AWS S3 | ImageKit |
+| --- | --- | --- |
+| Signing model | Presigned POST policy | Signed upload token |
+| Upload endpoint | Bucket endpoint | ImageKit upload endpoint |
+| Size constraint | Can be included in the POST policy | Sent through ImageKit checks |
+| Metadata | Object metadata | Custom metadata |
+| Expiration limit | Up to 7 days | Up to 1 hour |
+| Post-upload work | Application-owned | Application-owned |
+
+Choose the provider based on storage, delivery, transformation, and operations requirements. Upload SDK keeps the preparation contract consistent.
+
+## Production checklist
+
+Before shipping a direct upload flow, decide how your application will handle:
+
+* User authorization before signing
+* Accepted asset types and size limits
+* Provider CORS or upload-origin configuration
+* Expiration and retry behavior
+* Database records and ownership
+* Upload completion confirmation
+* Invalid file cleanup
+* Post-upload content verification when needed
+
+The strictness depends on what users can upload and how much trust the stored file needs.
+
+## Next steps
+
+* [Next.js Direct Uploads:](/docs/guides/next-js-direct-uploads)
+  Implement the flow with a route handler.
+
+* [S3 Presigned Browser Uploads:](/docs/guides/s3-presigned-browser-uploads)
+  Understand the S3-specific signing and browser upload flow.
+
+* [ImageKit Browser Uploads:](/docs/guides/imagekit-browser-uploads)
+  Understand the ImageKit-specific token and upload fields.

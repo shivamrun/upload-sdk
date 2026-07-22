@@ -88,6 +88,17 @@ Upload SDK currently includes:
 - [AWS S3](/docs/providers/aws-s3)
 - [ImageKit](/docs/providers/imagekit)
 
+For provider-specific browser flows, see [S3 Presigned Browser Uploads](/docs/guides/s3-presigned-browser-uploads) and [ImageKit Browser Uploads](/docs/guides/imagekit-browser-uploads).
+
+## Common upload patterns
+
+Upload SDK is commonly used for:
+
+- [Next.js direct uploads](/docs/guides/next-js-direct-uploads) through App Router route handlers
+- [S3 presigned browser uploads](/docs/guides/s3-presigned-browser-uploads) with a signed POST policy
+- [ImageKit browser uploads](/docs/guides/imagekit-browser-uploads) with a signed upload token
+- [Direct upload architecture](/docs/resources/direct-upload-architecture) where your app signs intent and the provider receives the file
+
 ## What your application handles
 
 Your application is still responsible for:
@@ -106,3 +117,6 @@ Provider credentials must remain in server-side code.
 
 - [Quick Start:](/docs/getting-started/quick-start)
   Follow the complete upload lifecycle.
+
+- [Next.js Direct Uploads:](/docs/guides/next-js-direct-uploads)
+  Prepare uploads in a route handler and send files from the browser.

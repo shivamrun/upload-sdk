@@ -1,4 +1,10 @@
 {
   "title": "Guides",
-  "pages": ["browser-uploads", "validation-and-errors"]
+  "pages": [
+    "browser-uploads",
+    "next-js-direct-uploads",
+    "s3-presigned-browser-uploads",
+    "imagekit-browser-uploads",
+    "validation-and-errors"
+  ]
 }

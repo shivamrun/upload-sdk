@@ -60,12 +60,12 @@ export async function generateMetadata(
     title: page.data.title,
     description: page.data.description,
     alternates: {
-      canonical: page.url,
+      canonical: toAbsoluteUrl(page.url),
     },
     openGraph: {
       title: page.data.title,
       description: page.data.description,
-      url: page.url,
+      url: toAbsoluteUrl(page.url),
       type: "article",
       images: [
         {
