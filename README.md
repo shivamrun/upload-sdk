@@ -3,11 +3,11 @@
 </p>
 
 <p align="center">
-  <a href="https://www.npmjs.com/package/@marinedotsh/upload-sdk"><img alt="version" src="https://shieldcn.dev/npm/@marinedotsh/upload-sdk.svg?variant=secondary" /></a>
+  <a href="https://www.npmjs.com/package/@evensurface/upload-sdk"><img alt="version" src="https://shieldcn.dev/npm/@evensurface/upload-sdk.svg?variant=secondary" /></a>
   <a href="https://x.com/shivamrun"><img alt="follow" src="https://shieldcn.dev/x/follow/shivamrun.svg?variant=secondary&amp;theme=zinc&amp;font=geist&amp;logo=ri%3ABsTwitterX&amp;label=Follow&amp;color=hjb" /></a>
 </p>
 
-Prepare direct browser uploads from your server without tying your application to one storage provider.
+Upload SDK by [Even Surface](https://evensurface.com) prepares direct browser uploads from your server without tying your application to one storage provider.
 
 ```ts
 const preparedUpload = await uploader.prepareUpload("avatar", {
@@ -17,7 +17,7 @@ const preparedUpload = await uploader.prepareUpload("avatar", {
 });
 ```
 
-`@marinedotsh/upload-sdk` validates client-reported file information, creates safe storage
+`@evensurface/upload-sdk` validates client-reported file information, creates safe storage
 keys, and returns short-lived multipart upload targets for AWS S3, ImageKit, and Neon Object Storage.
 
 - Typed storage profiles and upload assets
@@ -30,15 +30,15 @@ keys, and returns short-lived multipart upload targets for AWS S3, ImageKit, and
 ## Installation
 
 ```bash
-pnpm add @marinedotsh/upload-sdk
+pnpm add @evensurface/upload-sdk
 ```
 
 Other package managers:
 
 ```bash
-npm install @marinedotsh/upload-sdk
-yarn add @marinedotsh/upload-sdk
-bun add @marinedotsh/upload-sdk
+npm install @evensurface/upload-sdk
+yarn add @evensurface/upload-sdk
+bun add @evensurface/upload-sdk
 ```
 
 ## Setup
@@ -50,8 +50,8 @@ import {
   createUploader,
   defineAssets,
   defineStorageProfiles,
-} from "@marinedotsh/upload-sdk";
-import { awsS3 } from "@marinedotsh/upload-sdk/providers";
+} from "@evensurface/upload-sdk";
+import { awsS3 } from "@evensurface/upload-sdk/providers";
 
 const storageProfiles = defineStorageProfiles({
   userUploads: awsS3({
@@ -120,7 +120,7 @@ type PrepareUploadOutput = {
 Send the file directly to the provider with the returned form fields:
 
 ```ts
-import type { PrepareUploadOutput } from "@marinedotsh/upload-sdk";
+import type { PrepareUploadOutput } from "@evensurface/upload-sdk";
 
 async function uploadToProvider(
   file: File,
@@ -155,7 +155,7 @@ Do not manually set the multipart `Content-Type` header. The browser adds the bo
 ### AWS S3
 
 ```ts
-import { awsS3 } from "@marinedotsh/upload-sdk/providers";
+import { awsS3 } from "@evensurface/upload-sdk/providers";
 
 awsS3({
   bucket: process.env.AWS_BUCKET!,
@@ -174,7 +174,7 @@ expiration, metadata fields, and the configured size limit when present.
 ### ImageKit
 
 ```ts
-import { imageKit } from "@marinedotsh/upload-sdk/providers";
+import { imageKit } from "@evensurface/upload-sdk/providers";
 
 imageKit({
   publicKey: process.env.IMAGEKIT_PUBLIC_KEY!,
@@ -188,7 +188,7 @@ checks for file size and MIME type where supported.
 ### Neon Object Storage
 
 ```ts
-import { neonStorage } from "@marinedotsh/upload-sdk/providers";
+import { neonStorage } from "@evensurface/upload-sdk/providers";
 
 neonStorage({
   bucket: process.env.NEON_STORAGE_BUCKET!,
@@ -226,11 +226,11 @@ import {
   defineUploadConfig,
   isUploadSDKError,
   UploadSDKError,
-} from "@marinedotsh/upload-sdk";
+} from "@evensurface/upload-sdk";
 ```
 
 ```ts
-import { awsS3, imageKit, neonStorage } from "@marinedotsh/upload-sdk/providers";
+import { awsS3, imageKit, neonStorage } from "@evensurface/upload-sdk/providers";
 ```
 
 Common types:
@@ -244,7 +244,7 @@ import type {
   StorageProvider,
   UploadMetadata,
   UploadSDKErrorCode,
-} from "@marinedotsh/upload-sdk";
+} from "@evensurface/upload-sdk";
 ```
 
 ## Repository
@@ -274,7 +274,7 @@ pnpm check
 Package publish checks:
 
 ```bash
-pnpm --filter @marinedotsh/upload-sdk publish:check
+pnpm --filter @evensurface/upload-sdk publish:check
 ```
 
 ## Documentation

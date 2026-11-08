@@ -1,4 +1,4 @@
-import { toUploadSDKError, UploadSDKError } from "@marinedotsh/upload-sdk"
+import { toUploadSDKError, UploadSDKError } from "@evensurface/upload-sdk"
 import { createDemoUploader } from "@/server/uploader"
 
 type UploadRequestBody = {

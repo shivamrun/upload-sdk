@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useState } from "react";
 import { GithubLogo } from "@/components/logo";
 
-const INSTALL_COMMAND = "pnpm add @marinedotsh/upload-sdk";
+const INSTALL_COMMAND = "pnpm add @evensurface/upload-sdk";
 const COPY_RESET_DELAY = 1600;
 
 export function InstallSection() {
@@ -90,7 +90,7 @@ export function InstallSection() {
             </Link>
 
             <Link
-              href="https://github.com/marinedotsh/upload-sdk"
+              href="https://github.com/evensurface/upload-sdk"
               target="_blank"
               rel="noreferrer"
               className="inline-flex h-10 w-full items-center justify-center gap-2 rounded-md border bg-fd-secondary/60 px-5 text-sm font-medium text-fd-secondary-foreground transition-colors hover:bg-fd-secondary sm:w-auto"

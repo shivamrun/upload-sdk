@@ -41,7 +41,7 @@ These values are reported by the browser and should be treated as untrusted.
 Send the file information to an endpoint in your application:
 
 ```ts
-import type { PrepareUploadOutput } from "@marinedotsh/upload-sdk";
+import type { PrepareUploadOutput } from "@evensurface/upload-sdk";
 
 async function prepareAvatarUpload(
   file: File,
@@ -79,7 +79,7 @@ The response contains the signed instructions needed for the direct upload.
 Use `uploadFile()` to submit the file to the returned provider URL:
 
 ```ts
-import { uploadFile } from "@marinedotsh/upload-sdk";
+import { uploadFile } from "@evensurface/upload-sdk";
 
 await uploadFile(preparedUpload, file, {
   onProgress: ({ percent }) => {
@@ -139,7 +139,7 @@ The same browser flow works for both providers. The returned URL and signed fiel
 ## Complete example
 
 ```ts
-import { type PrepareUploadOutput, uploadFile } from "@marinedotsh/upload-sdk";
+import { type PrepareUploadOutput, uploadFile } from "@evensurface/upload-sdk";
 
 async function requestPreparedUpload(
   file: File,

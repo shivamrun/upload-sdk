@@ -20,7 +20,7 @@ importers:
 
   apps/demo:
     dependencies:
-      '@marinedotsh/upload-sdk':
+      '@evensurface/upload-sdk':
         specifier: workspace:*
         version: link:../../packages/upload-sdk
       next:

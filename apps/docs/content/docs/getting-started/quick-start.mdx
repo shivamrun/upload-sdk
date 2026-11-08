@@ -10,7 +10,7 @@ To use ImageKit, replace the provider inside the storage profile. Your asset rul
 ## Install
 
 ```bash
-pnpm add @marinedotsh/upload-sdk
+pnpm add @evensurface/upload-sdk
 ```
 
 ## Add your environment variables
@@ -38,8 +38,8 @@ import {
   createUploader,
   defineAssets,
   defineStorageProfiles,
-} from "@marinedotsh/upload-sdk";
-import { awsS3 } from "@marinedotsh/upload-sdk/providers";
+} from "@evensurface/upload-sdk";
+import { awsS3 } from "@evensurface/upload-sdk/providers";
 
 const storageProfiles = defineStorageProfiles({
   userUploads: awsS3({
@@ -152,7 +152,7 @@ Return `preparedUpload` to the client from your server endpoint.
 In the browser, send the selected file's information to your endpoint:
 
 ```ts
-import type { PrepareUploadOutput } from "@marinedotsh/upload-sdk";
+import type { PrepareUploadOutput } from "@evensurface/upload-sdk";
 
 async function prepareAvatarUpload(file: File): Promise<PrepareUploadOutput> {
   const response = await fetch("/api/uploads/avatar", {

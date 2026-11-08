@@ -1,6 +1,6 @@
 "use client"
 
-import { type PrepareUploadOutput, uploadFile } from "@marinedotsh/upload-sdk"
+import { type PrepareUploadOutput, uploadFile } from "@evensurface/upload-sdk"
 import { type FormEvent, useRef, useState } from "react"
 import { assets } from "@/server/asset-rules"
 

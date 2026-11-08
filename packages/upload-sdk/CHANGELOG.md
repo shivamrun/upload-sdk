@@ -1,4 +1,4 @@
-# @marinedotsh/upload-sdk
+# @evensurface/upload-sdk
 
 ## 1.1.0
 

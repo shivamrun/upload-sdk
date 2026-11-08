@@ -125,8 +125,8 @@ const uploadConfigCode = `import {
   createUploader,
   defineAssets,
   defineStorageProfiles,
-} from "@marinedotsh/upload-sdk";
-import { awsS3 } from "@marinedotsh/upload-sdk/providers";
+} from "@evensurface/upload-sdk";
+import { awsS3 } from "@evensurface/upload-sdk/providers";
 
 import { env } from "@/env";
 

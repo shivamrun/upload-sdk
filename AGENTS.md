@@ -25,7 +25,7 @@ Repository-level docs are in `docs`, including the Git convention reference.
 - `pnpm typecheck`: run TypeScript checks across the workspace.
 - `pnpm check`: run Biome checks at the repository root.
 - `pnpm check:fix` or `pnpm format`: apply Biome fixes/formatting.
-- `pnpm --filter @marinedotsh/upload-sdk publish:check`: verify package build, types, exports, and pack output.
+- `pnpm --filter @evensurface/upload-sdk publish:check`: verify package build, types, exports, and pack output.
 
 ## Coding Style & Naming Conventions
 
@@ -38,7 +38,7 @@ PascalCase for React components in the demo.
 ## Testing Guidelines
 
 There is no separate unit test suite yet. For SDK changes, run
-`pnpm --filter @marinedotsh/upload-sdk typecheck` and `pnpm --filter @marinedotsh/upload-sdk build`.
+`pnpm --filter @evensurface/upload-sdk typecheck` and `pnpm --filter @evensurface/upload-sdk build`.
 Add focused tests when introducing behavior that can regress, and place them near
 the code they cover using a clear `*.test.ts` naming pattern if a test runner is
 introduced.

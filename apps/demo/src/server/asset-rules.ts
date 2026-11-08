@@ -1,4 +1,4 @@
-import type { AssetUploadConfig } from "@marinedotsh/upload-sdk"
+import type { AssetUploadConfig } from "@evensurface/upload-sdk"
 import type { StorageProfileName } from "./providers"
 
 export const assets = {

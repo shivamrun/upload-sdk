@@ -1,6 +1,6 @@
 import "server-only"
 
-import { createUploader } from "@marinedotsh/upload-sdk"
+import { createUploader } from "@evensurface/upload-sdk"
 import { createUploadConfig } from "./upload-config"
 
 export function createDemoUploader() {

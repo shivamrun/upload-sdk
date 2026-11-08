@@ -24,8 +24,8 @@ Provider credentials must stay on the server. The browser should only receive si
 Create your uploader in server-only code:
 
 ```ts
-import { createUploader, defineAssets, defineStorageProfiles } from "@marinedotsh/upload-sdk";
-import { awsS3 } from "@marinedotsh/upload-sdk/providers";
+import { createUploader, defineAssets, defineStorageProfiles } from "@evensurface/upload-sdk";
+import { awsS3 } from "@evensurface/upload-sdk/providers";
 
 const storageProfiles = defineStorageProfiles({
   uploads: awsS3({
@@ -121,7 +121,7 @@ Only sign part numbers that belong to an upload session your application trusts.
 Upload the signed parts from the browser:
 
 ```ts
-import { uploadMultipartParts } from "@marinedotsh/upload-sdk";
+import { uploadMultipartParts } from "@evensurface/upload-sdk";
 
 const chunkSize = 8 * 1024 * 1024;
 const partCount = Math.ceil(file.size / chunkSize);

@@ -1,7 +1,7 @@
 import "server-only"
 
-import { defineStorageProfiles, UploadSDKError } from "@marinedotsh/upload-sdk"
-import { awsS3, imageKit } from "@marinedotsh/upload-sdk/providers"
+import { defineStorageProfiles, UploadSDKError } from "@evensurface/upload-sdk"
+import { awsS3, imageKit } from "@evensurface/upload-sdk/providers"
 
 function requireEnv(name: string): string {
   const value = process.env[name]

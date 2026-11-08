@@ -22,8 +22,8 @@ import {
   createUploader,
   defineAssets,
   defineStorageProfiles,
-} from "@marinedotsh/upload-sdk";
-import { awsS3 } from "@marinedotsh/upload-sdk/providers";
+} from "@evensurface/upload-sdk";
+import { awsS3 } from "@evensurface/upload-sdk/providers";
 
 const storageProfiles = defineStorageProfiles({
   uploads: awsS3({
@@ -102,7 +102,7 @@ Your application should decide which asset the user may upload to. Do not let th
 In a client component or browser utility, request the prepared upload:
 
 ```ts
-import type { PrepareUploadOutput } from "@marinedotsh/upload-sdk";
+import type { PrepareUploadOutput } from "@evensurface/upload-sdk";
 
 async function prepareAvatarUpload(file: File): Promise<PrepareUploadOutput> {
   const response = await fetch("/api/uploads/avatar", {

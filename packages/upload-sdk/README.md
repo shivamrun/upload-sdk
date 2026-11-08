@@ -1,22 +1,24 @@
-# @marinedotsh/upload-sdk
+# @evensurface/upload-sdk
+
+An [Even Surface](https://evensurface.com) package.
 
 Generate provider-agnostic signed upload targets for S3, ImageKit, and Neon Object Storage.
 
 ## Installation
 
 ```sh
-pnpm add @marinedotsh/upload-sdk
+pnpm add @evensurface/upload-sdk
 # or
-bun add @marinedotsh/upload-sdk
+bun add @evensurface/upload-sdk
 # or
-yarn add @marinedotsh/upload-sdk
+yarn add @evensurface/upload-sdk
 ```
 
 ## Usage
 
 ```ts
-import { createUploader, defineAssets, defineStorageProfiles } from "@marinedotsh/upload-sdk"
-import { awsS3 } from "@marinedotsh/upload-sdk/providers"
+import { createUploader, defineAssets, defineStorageProfiles } from "@evensurface/upload-sdk"
+import { awsS3 } from "@evensurface/upload-sdk/providers"
 
 const storageProfiles = defineStorageProfiles({
   s3: awsS3({
@@ -66,7 +68,7 @@ Use `uploadFile` in browser code to send a prepared multipart upload target with
 abort support:
 
 ```ts
-import { uploadFile } from "@marinedotsh/upload-sdk"
+import { uploadFile } from "@evensurface/upload-sdk"
 
 await uploadFile(preparedUpload, file, {
   signal: abortController.signal,
@@ -99,7 +101,7 @@ const preparedParts = await uploader.prepareMultipartUploadParts({
 Then upload the signed parts from browser code:
 
 ```ts
-import { uploadMultipartParts } from "@marinedotsh/upload-sdk"
+import { uploadMultipartParts } from "@evensurface/upload-sdk"
 
 const chunkSize = 8 * 1024 * 1024
 const uploadedParts = await uploadMultipartParts(preparedParts, file, {

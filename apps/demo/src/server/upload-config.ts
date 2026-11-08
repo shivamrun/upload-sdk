@@ -1,4 +1,4 @@
-import { defineUploadConfig } from "@marinedotsh/upload-sdk"
+import { defineUploadConfig } from "@evensurface/upload-sdk"
 
 import { assets } from "./asset-rules"
 import { createStorageProfiles } from "./providers"

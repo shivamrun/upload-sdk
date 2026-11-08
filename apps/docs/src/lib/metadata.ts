@@ -96,7 +96,7 @@ export const metadata: Metadata = {
     },
   ],
   creator: "Shivam Gupta",
-  publisher: "marinedotsh",
+  publisher: "Even Surface",
   applicationName: appName,
   category: "Developer tools",
   referrer: "origin-when-cross-origin",
@@ -160,8 +160,8 @@ export const metadata: Metadata = {
 const organization = {
   "@type": "Organization",
   "@id": `${siteBaseUrl}/#organization`,
-  name: "marinedotsh",
-  url: `https://github.com/${gitConfig.user}`,
+  name: "Even Surface",
+  url: "https://evensurface.com",
 };
 
 export const structuredData = {
@@ -235,7 +235,7 @@ export const structuredData = {
       alternateName: appName,
       applicationCategory: "DeveloperApplication",
       operatingSystem: "Node.js",
-      softwareVersion: "0.1.1",
+      softwareVersion: "1.1.0",
       url: siteBaseUrl,
       downloadUrl: npmPackageUrl,
       codeRepository: repositoryUrl,
